@@ -19,15 +19,23 @@ eureka:
   server:
     # 开发环境下关闭自我保护模式，便于测试
     enable-self-preservation: false
-    # 清理间隔时间 (ms)
-    eviction-interval-timer-in-ms: 5000
+    # 减少清理间隔时间，更快检测失效实例 (ms)
+    eviction-interval-timer-in-ms: 3000
+    # 期望心跳续约百分比阈值（低于此值会触发保护模式）
+    renewal-percent-threshold: 0.49
+    # 每分钟期望续约数
+    renewal-threshold-update-interval-ms: 15000
+    # 响应缓存刷新间隔，更快反映注册变化
+    response-cache-update-interval-ms: 3000
+    # 只读响应缓存过期时间  
+    response-cache-auto-expiration-in-seconds: 30
 
 # 健康检查配置
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,eureka
   endpoint:
     health:
       show-details: always

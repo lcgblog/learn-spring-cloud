@@ -1,0 +1,170 @@
+# ==============================================
+# ShopHub Spring Cloud Project .gitignore
+# ==============================================
+
+# ============== Java ==============
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+# ============== Maven ==============
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ============== IntelliJ IDEA ==============
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# ============== Spring Boot ==============
+application-*.properties
+application-*.yml
+!application.yml
+!application.properties
+spring-boot-*.log
+*.log
+logs/
+
+# ============== Database ==============
+*.db
+*.sqlite
+*.h2.db
+*.trace.db
+*.lock.db
+
+# ============== Docker ==============
+.docker/
+docker-compose.override.yml
+.env
+
+# ============== Operating System ==============
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ============== VS Code ==============
+.vscode/
+*.code-workspace
+
+# ============== Eclipse ==============
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+.recommenders
+.project
+.externalToolBuilders/
+.classpath
+.factorypath
+.buildpath
+.target
+
+# ============== Gradle ==============
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# ============== Node.js (if using frontend) ==============
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+.npm
+.eslintcache
+.node_repl_history
+*.tgz
+.yarn-integrity
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ============== Misc ==============
+*.log
+*.tmp
+*.temp
+**/src/main/resources/static/built/
+**/src/main/resources/public/built/
+
+# ============== Spring Cloud Config ==============
+config-repo/
+*.enc
+
+# ============== Kubernetes ==============
+*.kubeconfig
+kube-config
+
+# ============== Terraform ==============
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# ============== Custom Project Files ==============
+# 忽略测试数据文件
+test-data/
+# 忽略本地配置文件
+local-config/
+# 忽略脚本生成的文件
+generated/

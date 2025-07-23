@@ -1,0 +1,140 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  
+  # Spring Cloud Gateway 配置
+  cloud:
+    gateway:
+      # 启用服务发现路由
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+          
+      # 自定义路由规则
+      routes:
+        # 用户服务路由
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 200
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
+            - name: RewritePath
+              args:
+                regexp: /api/users/(?<segment>.*)
+                replacement: /api/users/${segment}
+                
+        # 产品服务路由
+        - id: product-service
+          uri: lb://product-service
+          predicates:
+            - Path=/api/products/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 200
+                redis-rate-limiter.burstCapacity: 400
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
+            - AddRequestHeader=X-Gateway-Route, product-service
+                
+        # 订单服务路由
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
+            - AddRequestHeader=X-Gateway-Route, order-service
+            
+        # Eureka Dashboard 代理 (开发用)
+        - id: eureka-server
+          uri: lb://eureka-server
+          predicates:
+            - Path=/eureka/**
+          filters:
+            - StripPrefix=0
+
+      # 全局过滤器配置
+      default-filters:
+        - name: Timestamp
+        - name: AddResponseHeader
+          args:
+            name: X-Gateway-Response
+            value: ShopHub-Gateway
+
+  # Redis 配置 (用于限流)
+  data:
+    redis:
+      host: js2.blockelite.cn
+      port: 10659
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# Eureka 客户端配置
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    fetch-registry: true
+    register-with-eureka: true
+  instance:
+    instance-id: ${spring.application.name}:${server.port}
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+# 健康检查配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# 日志配置
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web.reactive: DEBUG
+    reactor.netty: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%logger{36}] - %msg%n"
+
+---
+# Docker profile configuration
+spring:
+  config:
+    activate:
+      on-profile: docker
+  data:
+    redis:
+      host: js2.blockelite.cn
+      port: 10659
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/

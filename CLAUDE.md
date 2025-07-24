@@ -10,18 +10,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Eureka Server** (port 8761): Service discovery and registration center
 - **API Gateway** (port 8080): Single entry point with routing, rate limiting, and CORS support
 - **User Service** (port 8081): User management with H2 database and Feign client integration
-- **Product Service** (port 8082): Product catalog management with in-memory data storage
-- **Order Service** (port 8083): Order processing and management system
+- **Product Service** (port 8082/8084/8085): Product catalog management with load balancing support
+- **Order Service** (port 8083): Order processing with Feign client for product service calls
 - **Redis** (port 6379): Distributed rate limiting and caching
 
-All services are registered with Eureka and implement health checks via Spring Boot Actuator.
+All services are registered with Eureka and implement health checks via Spring Boot Actuator. Week 4 added multi-instance Product Service deployment for load balancing demonstration.
 
 ### Tech Stack
 - **Spring Boot 3.2.0** with Java 17
-- **Spring Cloud 2023.0.0** (Eureka, Gateway, OpenFeign)
+- **Spring Cloud 2023.0.0** (Eureka, Gateway, OpenFeign, LoadBalancer)
 - **Maven** for dependency management
 - **H2 Database** (user-service)
 - **Redis** for distributed rate limiting
+- **Resilience4j** for retry and circuit breaker patterns
 - **Docker Compose** for containerized deployment
 
 ## Development Commands
@@ -38,11 +39,17 @@ cd order-service && mvn spring-boot:run
 # Windows batch script to start all services
 ./start-services.bat
 
+# Week 4: Start multiple Product Service instances for load balancing
+./start-multiple-products.sh
+
 # Test service discovery functionality
 ./test-service-discovery.sh
 
 # Test API Gateway functionality (Week 3)
 ./test-api-gateway.sh
+
+# Test Load Balancing functionality (Week 4)
+./test-week4-load-balancing.sh
 ```
 
 ### Docker Deployment
@@ -65,6 +72,9 @@ docker-compose down
 # Run API Gateway tests (Week 3)
 ./test-api-gateway.sh
 
+# Run Load Balancing tests (Week 4)
+./test-week4-load-balancing.sh
+
 # Manual health checks
 curl http://localhost:8761/actuator/health  # Eureka Server
 curl http://localhost:8080/actuator/health  # API Gateway  
@@ -82,6 +92,15 @@ curl http://localhost:8080/api/users/check-product/1
 curl http://localhost:8080/api/users/health
 curl http://localhost:8080/api/products/health
 curl http://localhost:8080/api/orders/health
+
+# Week 4: Test Load Balancing (multiple calls show different instances)
+curl http://localhost:8080/api/orders/load-balance-demo
+curl http://localhost:8080/api/orders/verify-product/1
+
+# Test Product Service multiple instances
+curl http://localhost:8082/api/products/health  # Instance 1
+curl http://localhost:8084/api/products/health  # Instance 2  
+curl http://localhost:8085/api/products/health  # Instance 3
 ```
 
 ## Service Endpoints

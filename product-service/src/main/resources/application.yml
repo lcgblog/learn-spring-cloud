@@ -1,5 +1,5 @@
 server:
-  port: 8082
+  port: ${PORT:8082}
 
 spring:
   application:
@@ -51,6 +51,8 @@ eureka:
     metadata-map:
       version: "1.0.0"
       startup: ${random.long}
+      instance-id: ${spring.application.name}:${spring.application.instance_id:${server.port}}
+      port: ${server.port}
 
 # 健康检查配置
 management:

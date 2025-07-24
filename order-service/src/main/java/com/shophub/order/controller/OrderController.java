@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +15,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.shophub.order.feign.ProductServiceClient;
 
 /**
  * 订单控制器
@@ -25,6 +28,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/orders")
 @CrossOrigin(origins = "*")
 public class OrderController {
+    
+    @Autowired
+    private ProductServiceClient productServiceClient;
     
     // 模拟订单数据 (实际项目中应该连接数据库)
     private static final List<Map<String, Object>> MOCK_ORDERS = Arrays.asList(
@@ -153,8 +159,63 @@ public class OrderController {
      * GET /api/orders/health
      */
     @GetMapping("/health")
-    public ResponseEntity<String> healthCheck() {
-        return ResponseEntity.ok("Order Service is running! 当前有 " + MOCK_ORDERS.size() + " 个订单");
+    public ResponseEntity<Map<String, Object>> healthCheck() {
+        Map<String, Object> health = new HashMap<>();
+        health.put("status", "UP");
+        health.put("service", "order-service");
+        health.put("port", "8083");
+        health.put("ordersCount", MOCK_ORDERS.size());
+        health.put("timestamp", System.currentTimeMillis());
+        health.put("message", "Order Service 运行正常");
+        
+        return ResponseEntity.ok(health);
+    }
+    
+    /**
+     * 负载均衡演示 - 调用产品服务健康检查
+     * GET /api/orders/load-balance-demo
+     */
+    @GetMapping("/load-balance-demo")
+    public ResponseEntity<Map<String, Object>> loadBalanceDemo() {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // 调用产品服务 - 会通过负载均衡器路由到不同实例
+            Map<String, Object> productHealth = productServiceClient.getProductServiceHealth();
+            
+            result.put("orderService", "order-service:8083");
+            result.put("productServiceResponse", productHealth);
+            result.put("timestamp", System.currentTimeMillis());
+            result.put("message", "负载均衡调用成功");
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            result.put("error", "负载均衡调用失败: " + e.getMessage());
+            return ResponseEntity.ok(result);
+        }
+    }
+    
+    /**
+     * 验证产品存在性演示
+     * GET /api/orders/verify-product/{productId}
+     */
+    @GetMapping("/verify-product/{productId}")
+    public ResponseEntity<Map<String, Object>> verifyProduct(@PathVariable Long productId) {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // 通过Feign客户端调用产品服务
+            Map<String, Object> productCheck = productServiceClient.checkProductExists(productId);
+            
+            result.put("orderService", "order-service:8083");
+            result.put("productVerification", productCheck);
+            result.put("timestamp", System.currentTimeMillis());
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            result.put("error", "产品验证失败: " + e.getMessage());
+            return ResponseEntity.ok(result);
+        }
     }
     
     /**

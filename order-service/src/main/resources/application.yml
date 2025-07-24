@@ -27,6 +27,21 @@ spring:
     console:
       enabled: true
       path: /h2-console
+      
+  # Spring Cloud LoadBalancer 配置
+  cloud:
+    loadbalancer:
+      retry:
+        enabled: true
+        # 重试次数
+        max-retries-on-same-service-instance: 1
+        max-retries-on-next-service-instance: 2
+        retry-on-all-operations: false
+        retryable-status-codes: 500,502,503,504
+      # 健康检查
+      health-check:
+        initial-delay: 1000ms
+        interval: 10000ms
 
 # Eureka Client 配置
 eureka:
@@ -49,6 +64,50 @@ management:
   endpoint:
     health:
       show-details: always
+
+# Feign 客户端配置
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 10000
+        logger-level: basic
+      product-service:
+        connect-timeout: 3000
+        read-timeout: 8000
+        logger-level: full
+        # 重试配置
+        retryer: 
+          class: feign.Retryer.Default
+          # 重试间隔：100ms, 最大间隔：1s, 最大重试次数：3
+          period: 100
+          max-period: 1000
+          max-attempts: 3
+  circuitbreaker:
+    enabled: true
+    alphanumeric-ids:
+      enabled: true
+        
+# Resilience4j 配置 (熔断器和重试)
+resilience4j:
+  retry:
+    instances:
+      product-service:
+        max-attempts: 3
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+          - feign.RetryableException
+  circuitbreaker:
+    instances:
+      product-service:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30000ms
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
 
 # 日志配置
 logging:

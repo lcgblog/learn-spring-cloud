@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,6 +25,12 @@ import org.springframework.web.bind.annotation.RestController;
 @CrossOrigin(origins = "*")
 public class ProductController {
     
+    @Value("${server.port}")
+    private String serverPort;
+    
+    @Value("${spring.application.name}")
+    private String serviceName;
+    
     // 模拟产品数据 (实际项目中应该连接数据库)
     private static final List<Map<String, Object>> MOCK_PRODUCTS = Arrays.asList(
         createProduct(1L, "iPhone 15 Pro", "Apple", 8999.00, true),
@@ -38,15 +45,17 @@ public class ProductController {
      * GET /api/products/{productId}/exists
      */
     @GetMapping("/{productId}/exists")
-    public ResponseEntity<String> checkProductExists(@PathVariable Long productId) {
+    public ResponseEntity<Map<String, Object>> checkProductExists(@PathVariable Long productId) {
         boolean exists = MOCK_PRODUCTS.stream()
             .anyMatch(product -> productId.equals(product.get("id")));
         
-        if (exists) {
-            return ResponseEntity.ok("产品ID " + productId + " 存在于产品服务中");
-        } else {
-            return ResponseEntity.ok("产品ID " + productId + " 不存在");
-        }
+        Map<String, Object> response = new HashMap<>();
+        response.put("exists", exists);
+        response.put("message", exists ? "产品ID " + productId + " 存在" : "产品ID " + productId + " 不存在");
+        response.put("serviceInstance", serviceName + ":" + serverPort);
+        response.put("timestamp", System.currentTimeMillis());
+        
+        return ResponseEntity.ok(response);
     }
     
     /**
@@ -61,8 +70,14 @@ public class ProductController {
             .orElse(null);
         
         if (product != null) {
-            return ResponseEntity.ok(product);
+            Map<String, Object> enrichedProduct = new HashMap<>(product);
+            enrichedProduct.put("serviceInstance", serviceName + ":" + serverPort);
+            enrichedProduct.put("responseTime", System.currentTimeMillis());
+            return ResponseEntity.ok(enrichedProduct);
         } else {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Product not found");
+            errorResponse.put("serviceInstance", serviceName + ":" + serverPort);
             return ResponseEntity.notFound().build();
         }
     }
@@ -112,8 +127,16 @@ public class ProductController {
      * GET /api/products/health
      */
     @GetMapping("/health")
-    public ResponseEntity<String> healthCheck() {
-        return ResponseEntity.ok("Product Service is running! 已加载 " + MOCK_PRODUCTS.size() + " 个产品");
+    public ResponseEntity<Map<String, Object>> healthCheck() {
+        Map<String, Object> health = new HashMap<>();
+        health.put("status", "UP");
+        health.put("service", serviceName);
+        health.put("port", serverPort);
+        health.put("productsCount", MOCK_PRODUCTS.size());
+        health.put("timestamp", System.currentTimeMillis());
+        health.put("message", "Product Service 实例运行正常，端口: " + serverPort);
+        
+        return ResponseEntity.ok(health);
     }
     
     /**

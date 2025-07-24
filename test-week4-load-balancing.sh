@@ -129,7 +129,10 @@ echo "===================="
 
 echo "收集10次调用的实例分布情况："
 
-declare -A instance_count
+# Use simple counting for bash 3.2 compatibility
+instance_8082=0
+instance_8084=0
+instance_8085=0
 total_calls=0
 successful_calls=0
 
@@ -140,7 +143,11 @@ for i in {1..10}; do
         service_instance=$(echo "$response" | jq -r '.productServiceResponse.serviceInstance // .productServiceResponse.service + ":" + (.productServiceResponse.port // "unknown")' 2>/dev/null)
         
         if [ "$service_instance" != "null" ] && [ "$service_instance" != "" ]; then
-            instance_count["$service_instance"]=$((${instance_count["$service_instance"]} + 1))
+            case "$service_instance" in
+                *"8082") instance_8082=$((instance_8082 + 1)) ;;
+                *"8084") instance_8084=$((instance_8084 + 1)) ;;
+                *"8085") instance_8085=$((instance_8085 + 1)) ;;
+            esac
             successful_calls=$((successful_calls + 1))
         fi
     fi
@@ -157,11 +164,32 @@ echo "总调用次数: $total_calls"
 echo "成功次数: $successful_calls"
 echo ""
 
-for instance in "${!instance_count[@]}"; do
-    count=${instance_count[$instance]}
-    percentage=$(( count * 100 / successful_calls ))
-    echo "$instance: $count 次 ($percentage%)"
-done
+if [ $instance_8082 -gt 0 ]; then
+    if [ $successful_calls -gt 0 ]; then
+        percentage=$(( instance_8082 * 100 / successful_calls ))
+        echo "product-service:8082: $instance_8082 次 ($percentage%)"
+    else
+        echo "product-service:8082: $instance_8082 次"
+    fi
+fi
+
+if [ $instance_8084 -gt 0 ]; then
+    if [ $successful_calls -gt 0 ]; then
+        percentage=$(( instance_8084 * 100 / successful_calls ))
+        echo "product-service:8084: $instance_8084 次 ($percentage%)"
+    else
+        echo "product-service:8084: $instance_8084 次"
+    fi
+fi
+
+if [ $instance_8085 -gt 0 ]; then
+    if [ $successful_calls -gt 0 ]; then
+        percentage=$(( instance_8085 * 100 / successful_calls ))
+        echo "product-service:8085: $instance_8085 次 ($percentage%)"
+    else
+        echo "product-service:8085: $instance_8085 次"
+    fi
+fi
 
 echo ""
 echo "🔧 6. 重试和容错测试"
@@ -177,9 +205,9 @@ for i in {1..3}; do
     echo ""
     echo "第 $i 次重试测试："
     
-    start_time=$(date +%s%3N)
+    start_time=$(date +%s)
     response=$(curl -s "http://localhost:8080/api/orders/load-balance-demo" 2>/dev/null)
-    end_time=$(date +%s%3N)
+    end_time=$(date +%s)
     
     duration=$((end_time - start_time))
     

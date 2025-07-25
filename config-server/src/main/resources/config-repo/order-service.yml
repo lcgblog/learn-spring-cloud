@@ -1,0 +1,99 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: order-service
+  cloud:
+    loadbalancer:
+      retry:
+        enabled: true
+        max-retries-on-same-service-instance: 1
+        max-retries-on-next-service-instance: 2
+        retryable-status-codes: 500,502,503,504
+      health-check:
+        initial-delay: 1000ms
+        interval: 10000ms
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+# Feign client configuration
+feign:
+  client:
+    config:
+      product-service:
+        connect-timeout: 3000
+        read-timeout: 8000
+        logger-level: full
+        retryer: 
+          class: feign.Retryer.Default
+          period: 100
+          max-period: 1000
+          max-attempts: 3
+  circuitbreaker:
+    enabled: true
+
+
+# Resilience4j retry configuration
+resilience4j:
+  retry:
+    instances:
+      product-service:
+        max-attempts: 3
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+          - feign.RetryableException
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh
+  endpoint:
+    health:
+      show-details: always
+
+# Feature toggles
+feature:
+  recommendations:
+    enabled: ${FEATURE_RECOMMENDATIONS_ENABLED:true}
+  realtime-inventory:
+    enabled: ${FEATURE_REALTIME_INVENTORY_ENABLED:false}
+  multi-currency:
+    enabled: ${FEATURE_MULTI_CURRENCY_ENABLED:false}
+
+# Payment gateway configuration
+payment:
+  gateway:
+    primary: stripe
+    fallback: paypal
+    timeout: 30s
+    retry-attempts: 3
+  processing:
+    async: true
+    notification-url: http://localhost:8083/api/orders/payment-callback
+
+# Order service specific configuration
+order:
+  processing:
+    auto-confirm: true
+    confirmation-timeout: 15m
+  inventory:
+    reserve-timeout: 10m
+    check-before-payment: true
+
+logging:
+  level:
+    com.shophub.order: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

@@ -1,0 +1,17 @@
+# Production environment overrides
+feature:
+  recommendations:
+    enabled: true
+    algorithm: collaborative-filtering
+    max-results: 20
+  realtime-inventory:
+    enabled: true
+    refresh-interval: 10s
+  multi-currency:
+    enabled: true
+    supported-currencies: USD,EUR,CNY,JPY,GBP
+
+product:
+  search:
+    max-results: 200
+    cache-timeout: 600s

@@ -1,0 +1,108 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter:
+                  replenish-rate: 100
+                  burst-capacity: 200
+                  requested-tokens: 1
+                key-resolver: "#{@ipKeyResolver}"
+            - name: Authentication
+              args:
+                require-auth: false
+        - id: product-service
+          uri: lb://product-service
+          predicates:
+            - Path=/api/products/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter:
+                  replenish-rate: 200
+                  burst-capacity: 400
+                  requested-tokens: 1
+                key-resolver: "#{@ipKeyResolver}"
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter:
+                  replenish-rate: 50
+                  burst-capacity: 100
+                  requested-tokens: 1
+                key-resolver: "#{@ipKeyResolver}"
+        - id: eureka-server
+          uri: lb://eureka-server
+          predicates:
+            - Path=/eureka/**
+  data:
+    redis:
+      host: js2.blockelite.cn
+      port: 10659
+      timeout: 2000ms
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,refresh
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# Feature toggles
+feature:
+  recommendations:
+    enabled: ${FEATURE_RECOMMENDATIONS_ENABLED:true}
+  realtime-inventory:
+    enabled: ${FEATURE_REALTIME_INVENTORY_ENABLED:false}
+  multi-currency:
+    enabled: ${FEATURE_MULTI_CURRENCY_ENABLED:false}
+
+# Payment gateway configuration
+payment:
+  gateway:
+    primary: stripe
+    fallback: paypal
+    stripe:
+      api-key: ${STRIPE_API_KEY:sk_test_dummy}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_dummy}
+    paypal:
+      client-id: ${PAYPAL_CLIENT_ID:paypal_dummy}
+      client-secret: ${PAYPAL_CLIENT_SECRET:paypal_secret_dummy}
+
+logging:
+  level:
+    com.shophub.gateway: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

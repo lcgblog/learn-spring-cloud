@@ -1,0 +1,57 @@
+server:
+  port: ${PORT:8082}
+
+spring:
+  application:
+    name: product-service
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    metadata-map:
+      version: "1.0.0"
+      startup: ${random.long}
+      instance-id: ${spring.application.name}:${spring.application.instance_id:${server.port}}
+      port: ${server.port}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,env
+  endpoint:
+    health:
+      show-details: always
+
+# Feature toggles
+feature:
+  recommendations:
+    enabled: ${FEATURE_RECOMMENDATIONS_ENABLED:true}
+    algorithm: collaborative-filtering
+    max-results: 10
+  realtime-inventory:
+    enabled: ${FEATURE_REALTIME_INVENTORY_ENABLED:false}
+    refresh-interval: 30s
+  multi-currency:
+    enabled: ${FEATURE_MULTI_CURRENCY_ENABLED:false}
+    supported-currencies: USD,EUR,CNY
+
+# Business configuration
+product:
+  search:
+    max-results: 100
+    cache-timeout: 300s
+  catalog:
+    default-category: electronics
+    enable-reviews: true
+
+logging:
+  level:
+    com.shophub.product: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

@@ -1,0 +1,16 @@
+# Development environment overrides
+feature:
+  recommendations:
+    enabled: true
+    algorithm: simple-recommendation
+    max-results: 5
+  realtime-inventory:
+    enabled: false
+  multi-currency:
+    enabled: false
+    supported-currencies: USD
+
+product:
+  search:
+    max-results: 50
+    cache-timeout: 60s

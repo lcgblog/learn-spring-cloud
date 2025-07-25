@@ -1,0 +1,12 @@
+# Docker environment specific configuration for Config Server
+spring:
+  cloud:
+    config:
+      server:
+        native:
+          search-locations: classpath:/config-repo
+      
+logging:
+  level:
+    com.shophub.config: INFO
+    org.springframework.cloud.config: INFO

@@ -148,7 +148,7 @@ lerna-debug.log*
 **/src/main/resources/public/built/
 
 # ============== Spring Cloud Config ==============
-config-repo/
+#config-repo/
 *.enc
 
 # ============== Kubernetes ==============

@@ -1,0 +1,23 @@
+# Development environment overrides
+feature:
+  recommendations:
+    enabled: true
+  realtime-inventory:
+    enabled: false
+  multi-currency:
+    enabled: false
+
+payment:
+  gateway:
+    primary: stripe
+    stripe:
+      api-key: sk_test_dev_dummy
+      webhook-secret: whsec_dev_dummy
+    paypal:
+      client-id: paypal_dev_dummy
+      client-secret: paypal_dev_secret_dummy
+
+logging:
+  level:
+    root: INFO
+    com.shophub: DEBUG

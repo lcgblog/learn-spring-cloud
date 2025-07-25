@@ -1,0 +1,23 @@
+# Production environment overrides
+feature:
+  recommendations:
+    enabled: true
+  realtime-inventory:
+    enabled: true
+  multi-currency:
+    enabled: true
+
+payment:
+  gateway:
+    primary: stripe
+    stripe:
+      api-key: ${STRIPE_PROD_API_KEY}
+      webhook-secret: ${STRIPE_PROD_WEBHOOK_SECRET}
+    paypal:
+      client-id: ${PAYPAL_PROD_CLIENT_ID}
+      client-secret: ${PAYPAL_PROD_CLIENT_SECRET}
+
+logging:
+  level:
+    root: WARN
+    com.shophub: INFO

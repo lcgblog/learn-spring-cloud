@@ -1,0 +1,66 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-service
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password: password
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh
+  endpoint:
+    health:
+      show-details: always
+
+# Feature toggles
+feature:
+  recommendations:
+    enabled: ${FEATURE_RECOMMENDATIONS_ENABLED:true}
+    personalization: true
+  realtime-inventory:
+    enabled: ${FEATURE_REALTIME_INVENTORY_ENABLED:false}
+  multi-currency:
+    enabled: ${FEATURE_MULTI_CURRENCY_ENABLED:false}
+
+# User service specific configuration
+user:
+  authentication:
+    jwt-secret: ${JWT_SECRET:mySecretKey}
+    token-expiration: 3600
+  registration:
+    email-verification: true
+    auto-approve: false
+  profile:
+    max-upload-size: 5MB
+    allowed-formats: jpg,png,gif
+
+logging:
+  level:
+    com.shophub.user: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

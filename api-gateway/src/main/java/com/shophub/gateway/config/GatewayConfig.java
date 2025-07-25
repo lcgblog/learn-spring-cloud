@@ -100,4 +100,15 @@ public class GatewayConfig {
             return Mono.just("default");
         };
     }
+
+    @Bean
+    public KeyResolver ipKeyResolver(){
+        return exchange -> {
+            String clientIp = exchange.getRequest()
+                .getRemoteAddress()
+                .getAddress()
+                .getHostAddress();
+            return Mono.just(clientIp);
+        };
+    }
 }

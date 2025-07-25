@@ -1,12 +1,29 @@
 version: '3.8'
 
 services:
+  config-server:
+    build: ./config-server
+    ports:
+      - "8888:8888"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    networks:
+      - shophub-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   eureka-server:
     build: ./eureka-server
     ports:
       - "8761:8761"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      config-server:
+        condition: service_healthy
     networks:
       - shophub-network
     healthcheck:
@@ -22,7 +39,10 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
     depends_on:
+      config-server:
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
     networks:
@@ -40,7 +60,10 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
     depends_on:
+      config-server:
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
     networks:
@@ -58,7 +81,10 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
     depends_on:
+      config-server:
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
     networks:
@@ -76,7 +102,10 @@ services:
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - SPRING_CLOUD_CONFIG_URI=http://config-server:8888
     depends_on:
+      config-server:
+        condition: service_healthy
       eureka-server:
         condition: service_healthy
       redis:

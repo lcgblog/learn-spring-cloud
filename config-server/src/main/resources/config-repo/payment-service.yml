@@ -1,0 +1,82 @@
+# Payment Service Configuration
+server:
+  port: 8086
+
+spring:
+  # H2数据库配置
+  datasource:
+    url: jdbc:h2:mem:paymentdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  
+  # JPA配置
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+# Eureka客户端配置
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+    healthcheck:
+      enabled: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+    instance-id: ${spring.application.name}:${server.port}
+
+# Resilience4j配置
+resilience4j:
+  circuitbreaker:
+    instances:
+      stripe-payment:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+      paypal-payment:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 15s
+  
+  retry:
+    instances:
+      stripe-payment:
+        max-attempts: 3
+        wait-duration: 1s
+        exponential-backoff-multiplier: 2
+      paypal-payment:
+        max-attempts: 2
+        wait-duration: 2s
+  
+  timelimiter:
+    instances:
+      stripe-payment:
+        timeout-duration: 3s
+      paypal-payment:
+        timeout-duration: 5s
+  
+  bulkhead:
+    instances:
+      stripe-payment:
+        max-concurrent-calls: 5
+      paypal-payment:
+        max-concurrent-calls: 3
+
+logging:
+  level:
+    com.shophub.payment: INFO
+    io.github.resilience4j: INFO

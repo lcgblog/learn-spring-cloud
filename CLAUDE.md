@@ -13,9 +13,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **User Service** (port 8081): User management with H2 database and Feign client integration
 - **Product Service** (port 8082/8084/8085): Product catalog management with load balancing support
 - **Order Service** (port 8083): Order processing with Feign client for product service calls
+- **Payment Service** (port 8086): Payment processing with circuit breaker protection
 - **Redis** (port 6379): Distributed rate limiting and caching
 
-All services are registered with Eureka and implement health checks via Spring Boot Actuator. Week 4 added multi-instance Product Service deployment for load balancing demonstration. Week 5 introduced centralized configuration management with feature toggles and environment-specific configurations.
+All services are registered with Eureka and implement health checks via Spring Boot Actuator. Week 4 added multi-instance Product Service deployment for load balancing demonstration. Week 5 introduced centralized configuration management with feature toggles and environment-specific configurations. Week 6 implemented circuit breaker and resilience patterns for fault tolerance and graceful degradation.
 
 ### Tech Stack
 - **Spring Boot 3.2.0** with Java 17
@@ -41,6 +42,7 @@ learn-spring-cloud/
 ├── user-service/        # 用户服务
 ├── product-service/     # 产品服务
 ├── order-service/       # 订单服务
+├── payment-service/     # 支付服务
 └── build-all.sh        # 一键构建脚本
 ```
 
@@ -64,6 +66,7 @@ cd api-gateway && mvn spring-boot:run      # 3. API网关
 cd user-service && mvn spring-boot:run     # 4. 业务服务
 cd product-service && mvn spring-boot:run  # 5. 业务服务
 cd order-service && mvn spring-boot:run    # 6. 业务服务
+cd payment-service && mvn spring-boot:run  # 7. 支付服务
 
 # Windows batch script to start all services
 ./start-services.bat
@@ -82,6 +85,9 @@ cd order-service && mvn spring-boot:run    # 6. 业务服务
 
 # Test Configuration Management functionality (Week 5)
 ./test-week5-config-management.sh
+
+# Test Circuit Breaker functionality (Week 6)
+./test-week6-circuit-breaker.sh
 ```
 
 ### Docker Deployment
@@ -104,8 +110,14 @@ docker-compose down
 # Run API Gateway tests (Week 3)
 ./test-api-gateway.sh
 
+# Week 4: Test Load Balancing (multiple calls show different instances)
+./test-week4-load-balancing.sh
+
 # Week 5: Test Configuration Management (feature toggles, config refresh)
 ./test-week5-config-management.sh
+
+# Week 6: Test Circuit Breaker and Resilience patterns
+./test-week6-circuit-breaker.sh
 
 # Manual health checks
 curl http://localhost:8888/actuator/health  # Config Server
@@ -114,6 +126,7 @@ curl http://localhost:8080/actuator/health  # API Gateway
 curl http://localhost:8081/actuator/health  # User Service
 curl http://localhost:8082/actuator/health  # Product Service
 curl http://localhost:8083/actuator/health  # Order Service
+curl http://localhost:8086/actuator/health  # Payment Service
 
 # Check Eureka service registration
 curl http://localhost:8761/eureka/apps
@@ -125,6 +138,7 @@ curl http://localhost:8080/api/users/check-product/1
 curl http://localhost:8080/api/users/health
 curl http://localhost:8080/api/products/health
 curl http://localhost:8080/api/orders/health
+curl http://localhost:8080/api/payments/health
 
 # Week 4: Test Load Balancing (multiple calls show different instances)
 curl http://localhost:8080/api/orders/load-balance-demo
@@ -143,6 +157,17 @@ curl http://localhost:8082/api/products/features  # Product service features
 curl http://localhost:8082/api/products/recommendations  # Test recommendation feature
 curl http://localhost:8082/api/products/1/inventory  # Test inventory feature
 curl -X POST http://localhost:8082/actuator/refresh  # Refresh config
+
+# Week 6: Test Circuit Breaker and Resilience
+curl http://localhost:8086/api/payments/circuit-breaker/status  # Payment service circuit breaker status
+curl http://localhost:8082/api/products/circuit-breaker/status  # Product service circuit breaker status
+curl http://localhost:8083/api/orders/circuit-breaker/status  # Order service circuit breaker status
+curl -X POST http://localhost:8086/api/payments/process -H "Content-Type: application/json" -d '{"orderId":1,"userId":1,"amount":99.99,"currency":"USD"}'  # Test payment processing
+curl -X POST http://localhost:8083/api/orders/1/payment -H "Content-Type: application/json" -d '{"amount":99.99}'  # Test order payment
+curl http://localhost:8082/api/products/recommendations?userId=1&category=smartphone  # Test recommendations with circuit breaker
+curl http://localhost:8082/api/products/popular?category=laptop  # Test popular products
+curl http://localhost:8086/api/payments/demo/circuit-breaker  # Trigger circuit breaker demo
+curl http://localhost:8080/actuator/circuitbreakers  # All circuit breaker states via Gateway
 ```
 
 ## Service Endpoints
@@ -167,6 +192,7 @@ curl -X POST http://localhost:8082/actuator/refresh  # Refresh config
 - Users: `http://localhost:8080/api/users`
 - Products: `http://localhost:8080/api/products`
 - Orders: `http://localhost:8080/api/orders`
+- Payments: `http://localhost:8080/api/payments`
 - Eureka: `http://localhost:8080/eureka`
 
 ### Eureka Server (8761)
@@ -177,12 +203,23 @@ curl -X POST http://localhost:8082/actuator/refresh  # Refresh config
 - User Service: `http://localhost:8081/api/users`
 - Product Service: `http://localhost:8082/api/products`  
 - Order Service: `http://localhost:8083/api/orders`
+- Payment Service: `http://localhost:8086/api/payments`
 
 **Week 5: Configuration and Feature Toggle Endpoints**
 - Product Features: `http://localhost:8082/api/products/features`
 - Product Recommendations: `http://localhost:8082/api/products/recommendations`
 - Product Inventory: `http://localhost:8082/api/products/{id}/inventory`
 - Config Refresh: `POST http://localhost:8082/actuator/refresh`
+
+**Week 6: Circuit Breaker and Resilience Endpoints**
+- Payment Processing: `POST http://localhost:8086/api/payments/process`
+- Payment Status: `GET http://localhost:8086/api/payments/order/{orderId}`
+- Circuit Breaker Status: `GET http://localhost:8086/api/payments/circuit-breaker/status`
+- Order Payment: `POST http://localhost:8083/api/orders/{orderId}/payment`
+- Product Recommendations: `GET http://localhost:8082/api/products/recommendations`
+- Popular Products: `GET http://localhost:8082/api/products/popular`
+- Circuit Breaker Demo: `POST http://localhost:8086/api/payments/demo/circuit-breaker`
+- All Circuit Breakers: `GET http://localhost:8080/actuator/circuitbreakers`
 
 ### Redis (6379)
 - Used for distributed rate limiting
@@ -204,8 +241,10 @@ curl -X POST http://localhost:8082/actuator/refresh  # Refresh config
 
 ### Inter-Service Communication
 - **User Service → Product Service**: Implemented via Spring Cloud OpenFeign
+- **Order Service → Payment Service**: Implemented via Spring Cloud OpenFeign with circuit breaker protection
 - Feign client configuration includes fallback handling for service unavailability
 - Load balancing handled automatically by Spring Cloud LoadBalancer
+- Circuit breaker patterns protect service calls from cascading failures
 
 ### Development Profile Settings
 - **Local**: Services run on individual ports with direct Eureka connection
@@ -214,15 +253,19 @@ curl -X POST http://localhost:8082/actuator/refresh  # Refresh config
 
 ## Testing Framework
 
-The `test-service-discovery.sh` and `test-api-gateway.sh` scripts provide comprehensive validation:
-1. Service startup verification
-2. Health check validation  
-3. Eureka registration confirmation
-4. Inter-service communication testing
-5. API functionality verification
-6. Gateway routing and rate limiting tests (Week 3)
-7. CORS and filter validation (Week 3)
-8. Service statistics display
+Comprehensive test scripts provide end-to-end validation:
+1. **Service Discovery**: `test-service-discovery.sh` - Service startup, health checks, Eureka registration
+2. **API Gateway**: `test-api-gateway.sh` - Routing, rate limiting, CORS, filters
+3. **Load Balancing**: `test-week4-load-balancing.sh` - Multi-instance deployment, client-side load balancing
+4. **Configuration Management**: `test-week5-config-management.sh` - Feature toggles, config refresh, environment profiles
+5. **Circuit Breaker**: `test-week6-circuit-breaker.sh` - Resilience patterns, fault tolerance, graceful degradation
+
+Each script includes:
+- Service startup verification
+- Health check validation
+- Feature-specific testing
+- Error scenario simulation
+- Performance and reliability metrics
 
 ## Common Development Tasks
 
@@ -244,8 +287,18 @@ The `test-service-discovery.sh` and `test-api-gateway.sh` scripts provide compre
 - Use `@FeignClient` with service name (not URL) for automatic load balancing
 - Implement fallback methods for circuit breaker pattern
 - Enable `@EnableFeignClients` on main application class
+- Configure Resilience4j for circuit breaker, retry, timeout, and bulkhead patterns
+
+### Circuit Breaker and Resilience (Week 6)
+- Add `@CircuitBreaker`, `@Retry`, `@TimeLimiter`, `@Bulkhead` annotations to service methods
+- Configure Resilience4j properties in `application.yml` for each service
+- Implement fallback methods with same signature + Exception parameter
+- Use CompletableFuture for asynchronous processing with circuit breakers
+- Monitor circuit breaker states via Actuator endpoints
+- Implement graceful degradation strategies for user experience
 
 ### Service Configuration
 - Environment-specific configs use Spring profiles (default, docker)
 - Eureka client settings configured per service in `application.yml`
 - Docker networking uses service names as hostnames
+- Resilience4j configuration per service and pattern type

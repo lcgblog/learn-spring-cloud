@@ -61,6 +61,21 @@ spring:
                 key-resolver: "#{@userKeyResolver}"
             - AddRequestHeader=X-Gateway-Route, order-service
             
+        # 支付服务路由 (Week 6 新增)
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
+            - AddRequestHeader=X-Gateway-Route, payment-service
+            - AddRequestHeader=X-Circuit-Breaker-Enabled, true
+            
         # Eureka Dashboard 代理 (开发用)
         - id: eureka-server
           uri: lb://eureka-server

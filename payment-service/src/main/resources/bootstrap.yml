@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: payment-service
+  cloud:
+    config:
+      uri: ${CONFIG_SERVER_URL:http://localhost:8888}
+      username: ${CONFIG_USERNAME:configuser}
+      password: ${CONFIG_PASSWORD:configpass}
+      fail-fast: false
+      retry:
+        initial-interval: 1000
+        max-attempts: 6
+        max-interval: 2000
+        multiplier: 1.2

@@ -1,10 +1,17 @@
 package com.shophub.order.controller;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.shophub.order.feign.PaymentServiceClient;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -23,14 +30,23 @@ import com.shophub.order.feign.ProductServiceClient;
  * 
  * 提供订单管理的 REST API 接口
  * 支持订单创建、查询等功能
+ * Week 6: 添加支付服务调用和熔断器保护
  */
 @RestController
 @RequestMapping("/api/orders")
 @CrossOrigin(origins = "*")
 public class OrderController {
     
+    private static final Logger logger = LoggerFactory.getLogger(OrderController.class);
+    
     @Autowired
     private ProductServiceClient productServiceClient;
+    
+    @Autowired
+    private PaymentServiceClient paymentServiceClient;
+    
+    @Autowired
+    private CircuitBreakerRegistry circuitBreakerRegistry;
     
     // 模拟订单数据 (实际项目中应该连接数据库)
     private static final List<Map<String, Object>> MOCK_ORDERS = Arrays.asList(
@@ -216,6 +232,101 @@ public class OrderController {
             result.put("error", "产品验证失败: " + e.getMessage());
             return ResponseEntity.ok(result);
         }
+    }
+    
+    /**
+     * 处理订单支付 - 使用熔断器保护
+     * POST /api/orders/{orderId}/payment
+     */
+    @PostMapping("/{orderId}/payment")
+    @CircuitBreaker(name = "payment-service", fallbackMethod = "fallbackPayment")
+    @Retry(name = "payment-service")
+    public ResponseEntity<Map<String, Object>> processOrderPayment(
+            @PathVariable Long orderId,
+            @RequestBody Map<String, Object> paymentRequest) {
+        
+        logger.info("Processing payment for order: {}", orderId);
+        
+        try {
+            // 查找订单
+            Map<String, Object> order = MOCK_ORDERS.stream()
+                .filter(o -> orderId.equals(o.get("id")))
+                .findFirst()
+                .orElse(null);
+            
+            if (order == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // 准备支付请求
+            PaymentServiceClient.PaymentRequest paymentReq = new PaymentServiceClient.PaymentRequest(
+                orderId,
+                (Long) order.get("userId"),
+                BigDecimal.valueOf((Double) order.get("totalAmount")),
+                "USD"
+            );
+            
+            // 调用支付服务
+            ResponseEntity<Map<String, Object>> paymentResponse = paymentServiceClient.processPayment(paymentReq);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("orderId", orderId);
+            response.put("orderAmount", order.get("totalAmount"));
+            response.put("paymentResult", paymentResponse.getBody());
+            response.put("message", "订单支付处理完成");
+            response.put("timestamp", System.currentTimeMillis());
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("Payment processing failed for order: {}", orderId, e);
+            throw e; // 让熔断器处理异常
+        }
+    }
+    
+    /**
+     * 支付服务降级方法
+     */
+    public ResponseEntity<Map<String, Object>> fallbackPayment(Long orderId, Map<String, Object> paymentRequest, Exception ex) {
+        logger.warn("Payment service failed for order: {}, using fallback. Error: {}", orderId, ex.getMessage());
+        
+        Map<String, Object> fallbackResponse = new HashMap<>();
+        fallbackResponse.put("orderId", orderId);
+        fallbackResponse.put("status", "PAYMENT_PENDING");
+        fallbackResponse.put("message", "支付服务暂时不可用，订单已保存，稍后会自动重试支付");
+        fallbackResponse.put("fallback", true);
+        fallbackResponse.put("error", ex.getMessage());
+        fallbackResponse.put("timestamp", System.currentTimeMillis());
+        
+        return ResponseEntity.ok(fallbackResponse);
+    }
+    
+    /**
+     * 获取熔断器状态监控
+     * GET /api/orders/circuit-breaker/status
+     */
+    @GetMapping("/circuit-breaker/status")
+    public ResponseEntity<Map<String, Object>> getCircuitBreakerStatus() {
+        Map<String, Object> status = new HashMap<>();
+        
+        // 支付服务熔断器状态
+        io.github.resilience4j.circuitbreaker.CircuitBreaker paymentCB = circuitBreakerRegistry.circuitBreaker("payment-service");
+        status.put("paymentService", getCircuitBreakerInfo(paymentCB));
+        
+        status.put("service", "order-service");
+        status.put("timestamp", System.currentTimeMillis());
+        
+        return ResponseEntity.ok(status);
+    }
+    
+    private Map<String, Object> getCircuitBreakerInfo(io.github.resilience4j.circuitbreaker.CircuitBreaker circuitBreaker) {
+        Map<String, Object> info = new HashMap<>();
+        info.put("state", circuitBreaker.getState().toString());
+        info.put("failureRate", circuitBreaker.getMetrics().getFailureRate());
+        info.put("numberOfBufferedCalls", circuitBreaker.getMetrics().getNumberOfBufferedCalls());
+        info.put("numberOfFailedCalls", circuitBreaker.getMetrics().getNumberOfFailedCalls());
+        info.put("numberOfSuccessfulCalls", circuitBreaker.getMetrics().getNumberOfSuccessfulCalls());
+        return info;
     }
     
     /**

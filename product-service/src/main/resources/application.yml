@@ -59,10 +59,83 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,refresh,env
+        include: health,info,metrics,refresh,env,circuitbreakers,circuitbreakerevents
   endpoint:
     health:
       show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+
+# Resilience4j配置
+resilience4j:
+  # 熔断器配置
+  circuitbreaker:
+    instances:
+      recommendation-service:
+        register-health-indicator: true
+        sliding-window-type: count_based
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 15s
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - java.lang.RuntimeException
+          - java.util.concurrent.TimeoutException
+          - java.io.IOException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException
+      
+      popular-products:
+        register-health-indicator: true
+        sliding-window-type: count_based
+        sliding-window-size: 8
+        minimum-number-of-calls: 3
+        failure-rate-threshold: 40
+        wait-duration-in-open-state: 10s
+        automatic-transition-from-open-to-half-open-enabled: true
+      
+      similar-products:
+        register-health-indicator: true
+        sliding-window-type: time_based
+        sliding-window-size: 60
+        minimum-number-of-calls: 4
+        failure-rate-threshold: 30
+        wait-duration-in-open-state: 20s
+  
+  # 重试配置
+  retry:
+    instances:
+      recommendation-service:
+        max-attempts: 3
+        wait-duration: 1s
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.lang.RuntimeException
+          - java.util.concurrent.TimeoutException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException
+      
+      similar-products:
+        max-attempts: 2
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 1.5
+  
+  # 超时控制配置
+  timelimiter:
+    instances:
+      recommendation-service:
+        timeout-duration: 4s
+        cancel-running-future: true
+  
+  # 舱壁模式配置
+  bulkhead:
+    instances:
+      recommendation-service:
+        max-concurrent-calls: 3
+        max-wait-duration: 2s
 
 # 日志配置
 logging:
@@ -71,5 +144,6 @@ logging:
     org.springframework.cloud: DEBUG
     com.netflix.eureka: INFO
     com.netflix.discovery: INFO
+    io.github.resilience4j: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%logger{36}] - %msg%n" 

@@ -4,7 +4,12 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
+import com.shophub.product.service.ProductRecommendationService;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 
  * 提供产品管理的 REST API 接口
  * 支持与其他微服务的通信和配置动态刷新
+ * Week 6: 添加熔断器和韧性模式支持
  */
 @RestController
 @RequestMapping("/api/products")
@@ -48,6 +54,12 @@ public class ProductController {
     
     @Value("${product.catalog.default-category:electronics}")
     private String defaultCategory;
+    
+    @Autowired
+    private ProductRecommendationService recommendationService;
+    
+    @Autowired
+    private CircuitBreakerRegistry circuitBreakerRegistry;
     
     // 模拟产品数据 (实际项目中应该连接数据库)
     private static final List<Map<String, Object>> MOCK_PRODUCTS = Arrays.asList(
@@ -176,33 +188,151 @@ public class ProductController {
     }
     
     /**
-     * 获取产品推荐 (基于功能开关)
+     * 获取产品推荐 (基于功能开关，使用熔断器保护)
      * GET /api/products/recommendations
      */
     @GetMapping("/recommendations")
-    public ResponseEntity<Map<String, Object>> getRecommendations() {
+    public CompletableFuture<ResponseEntity<Map<String, Object>>> getRecommendations(
+            @RequestParam(defaultValue = "1") Long userId,
+            @RequestParam(required = false) String category) {
+        
         Map<String, Object> response = new HashMap<>();
         
         if (!recommendationsEnabled) {
             response.put("enabled", false);
             response.put("message", "产品推荐功能已关闭");
             response.put("serviceInstance", serviceName + ":" + serverPort);
-            return ResponseEntity.ok(response);
+            return CompletableFuture.completedFuture(ResponseEntity.ok(response));
         }
         
-        // 模拟推荐算法
-        List<Map<String, Object>> recommendations = MOCK_PRODUCTS.stream()
-            .filter(product -> (Boolean) product.get("available"))
-            .limit(3)
-            .toList();
+        // 使用推荐服务（包含熔断器保护）
+        return recommendationService.getPersonalizedRecommendations(userId, category)
+            .thenApply(recommendations -> {
+                response.put("enabled", true);
+                response.put("recommendations", recommendations);
+                response.put("algorithm", "personalized-with-circuit-breaker");
+                response.put("userId", userId);
+                response.put("category", category);
+                response.put("serviceInstance", serviceName + ":" + serverPort);
+                response.put("message", "基于用户偏好的个性化推荐（熔断器保护）");
+                response.put("count", recommendations.size());
+                
+                return ResponseEntity.ok(response);
+            })
+            .exceptionally(ex -> {
+                response.put("enabled", true);
+                response.put("error", "推荐服务异常");
+                response.put("message", ex.getMessage());
+                response.put("serviceInstance", serviceName + ":" + serverPort);
+                response.put("fallback", "使用默认推荐");
+                
+                // 降级到简单推荐
+                List<Map<String, Object>> fallbackRecommendations = MOCK_PRODUCTS.stream()
+                    .filter(product -> (Boolean) product.get("available"))
+                    .limit(3)
+                    .toList();
+                response.put("recommendations", fallbackRecommendations);
+                
+                return ResponseEntity.ok(response);
+            });
+    }
+    
+    /**
+     * 获取热门商品推荐
+     * GET /api/products/popular
+     */
+    @GetMapping("/popular")
+    public CompletableFuture<ResponseEntity<Map<String, Object>>> getPopularProducts(
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "5") int limit) {
         
-        response.put("enabled", true);
-        response.put("recommendations", recommendations);
-        response.put("algorithm", "collaborative-filtering");
-        response.put("serviceInstance", serviceName + ":" + serverPort);
-        response.put("message", "基于协同过滤算法的产品推荐");
+        return recommendationService.getPopularProducts(category, limit)
+            .thenApply(popularProducts -> {
+                Map<String, Object> response = new HashMap<>();
+                response.put("popular", popularProducts);
+                response.put("category", category);
+                response.put("limit", limit);
+                response.put("count", popularProducts.size());
+                response.put("serviceInstance", serviceName + ":" + serverPort);
+                response.put("message", "热门商品推荐（熔断器保护）");
+                
+                return ResponseEntity.ok(response);
+            })
+            .exceptionally(ex -> {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "热门商品服务异常");
+                errorResponse.put("message", ex.getMessage());
+                errorResponse.put("serviceInstance", serviceName + ":" + serverPort);
+                return ResponseEntity.status(500).body(errorResponse);
+            });
+    }
+    
+    /**
+     * 获取相似商品推荐
+     * GET /api/products/{productId}/similar
+     */
+    @GetMapping("/{productId}/similar")
+    public ResponseEntity<Map<String, Object>> getSimilarProducts(
+            @PathVariable Long productId,
+            @RequestParam(defaultValue = "4") int limit) {
         
-        return ResponseEntity.ok(response);
+        try {
+            List<Map<String, Object>> similarProducts = recommendationService.getSimilarProducts(productId, limit);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("productId", productId);
+            response.put("similar", similarProducts);
+            response.put("limit", limit);
+            response.put("count", similarProducts.size());
+            response.put("serviceInstance", serviceName + ":" + serverPort);
+            response.put("message", "相似商品推荐（熔断器保护）");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception ex) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("productId", productId);
+            errorResponse.put("error", "相似商品服务异常");
+            errorResponse.put("message", ex.getMessage());
+            errorResponse.put("serviceInstance", serviceName + ":" + serverPort);
+            return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+    
+    /**
+     * 获取推荐服务统计信息
+     * GET /api/products/recommendation-stats
+     */
+    @GetMapping("/recommendation-stats")
+    public ResponseEntity<Map<String, Object>> getRecommendationStats() {
+        Map<String, Object> stats = recommendationService.getRecommendationStats();
+        stats.put("serviceInstance", serviceName + ":" + serverPort);
+        return ResponseEntity.ok(stats);
+    }
+    
+    /**
+     * 获取熔断器状态监控
+     * GET /api/products/circuit-breaker/status
+     */
+    @GetMapping("/circuit-breaker/status")
+    public ResponseEntity<Map<String, Object>> getCircuitBreakerStatus() {
+        Map<String, Object> status = new HashMap<>();
+        
+        // 推荐服务熔断器状态
+        CircuitBreaker recommendationCB = circuitBreakerRegistry.circuitBreaker("recommendation-service");
+        status.put("recommendationService", getCircuitBreakerInfo(recommendationCB));
+        
+        // 热门商品熔断器状态
+        CircuitBreaker popularProductsCB = circuitBreakerRegistry.circuitBreaker("popular-products");
+        status.put("popularProducts", getCircuitBreakerInfo(popularProductsCB));
+        
+        // 相似商品熔断器状态
+        CircuitBreaker similarProductsCB = circuitBreakerRegistry.circuitBreaker("similar-products");
+        status.put("similarProducts", getCircuitBreakerInfo(similarProductsCB));
+        
+        status.put("serviceInstance", serviceName + ":" + serverPort);
+        status.put("timestamp", System.currentTimeMillis());
+        
+        return ResponseEntity.ok(status);
     }
     
     /**
@@ -238,6 +368,17 @@ public class ProductController {
         response.put("serviceInstance", serviceName + ":" + serverPort);
         
         return ResponseEntity.ok(response);
+    }
+    
+    private Map<String, Object> getCircuitBreakerInfo(CircuitBreaker circuitBreaker) {
+        Map<String, Object> info = new HashMap<>();
+        info.put("state", circuitBreaker.getState().toString());
+        info.put("failureRate", circuitBreaker.getMetrics().getFailureRate());
+        info.put("numberOfBufferedCalls", circuitBreaker.getMetrics().getNumberOfBufferedCalls());
+        info.put("numberOfFailedCalls", circuitBreaker.getMetrics().getNumberOfFailedCalls());
+        info.put("numberOfSuccessfulCalls", circuitBreaker.getMetrics().getNumberOfSuccessfulCalls());
+        info.put("numberOfSlowCalls", circuitBreaker.getMetrics().getNumberOfSlowCalls());
+        return info;
     }
     
     /**

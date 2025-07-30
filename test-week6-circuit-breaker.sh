@@ -11,10 +11,10 @@ echo "========================================="
 check_service_health() {
     local service_name=$1
     local port=$2
-    local path=${3:-"/actuator/health"}
+    local endpoint_path=${3:-"/actuator/health"}
     
     echo "Checking $service_name health..."
-    response=$(curl -s -w "%{http_code}" "http://localhost:$port$path" -o /tmp/health_response.json)
+    response=$(curl -s -w "%{http_code}" "http://localhost:$port$endpoint_path" -o /tmp/health_response.json)
     
     if [ "$response" = "200" ]; then
         echo "  ✅ $service_name is UP (port: $port)"
@@ -35,12 +35,12 @@ check_service_health() {
 test_circuit_breaker_status() {
     local service_name=$1
     local port=$2
-    local path=$3
+    local endpoint_path=$3
     
     echo ""
     echo "📊 Testing Circuit Breaker Status - $service_name"
-    echo "URL: http://localhost:$port$path"
-    response=$(curl -s "http://localhost:$port$path")
+    echo "URL: http://localhost:$port$endpoint_path"
+    response=$(curl -s "http://localhost:$port$endpoint_path")
     
     if [ $? -eq 0 ]; then
         echo "Circuit Breaker Status Response:"
@@ -261,4 +261,4 @@ main() {
 }
 
 # 执行主函数
-main "$@"
+#main "$@"

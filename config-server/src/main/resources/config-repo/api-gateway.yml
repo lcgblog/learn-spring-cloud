@@ -50,6 +50,20 @@ spring:
                   burst-capacity: 100
                   requested-tokens: 1
                 key-resolver: "#{@ipKeyResolver}"
+        # 支付服务路由 (Week 6 新增)
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
+            - AddRequestHeader=X-Gateway-Route, payment-service
+            - AddRequestHeader=X-Circuit-Breaker-Enabled, true
         - id: eureka-server
           uri: lb://eureka-server
           predicates:
@@ -60,14 +74,31 @@ spring:
       port: 10659
       timeout: 2000ms
 
+# Eureka Client 配置
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
     register-with-eureka: true
     fetch-registry: true
+    # 更频繁地从注册中心获取服务列表
+    registry-fetch-interval-seconds: 5
+    # 初始实例信息复制延迟时间
+    initial-instance-info-replication-interval-seconds: 5
+    # 实例信息复制间隔时间
+    instance-info-replication-interval-seconds: 5
   instance:
     prefer-ip-address: true
+    # 更频繁的心跳，更快检测到服务状态变化
+    lease-renewal-interval-in-seconds: 5
+    # 更短的过期时间，更快清理失效实例
+    lease-expiration-duration-in-seconds: 15
+    # 元数据，标识服务版本
+    metadata-map:
+      version: "1.0.0"
+      startup: ${random.long}
+      instance-id: ${spring.application.name}:${spring.application.instance_id:${server.port}}
+      port: ${server.port}
 
 management:
   endpoints:

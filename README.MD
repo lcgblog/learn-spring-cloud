@@ -16,12 +16,12 @@ By the end of this framework, you'll build a production-ready microservices arch
 ---
 
 ## 📋 Prerequisites Checklist
-- [ ] Java 17+ installed
-- [ ] Spring Boot 3.x experience
-- [ ] Docker & Docker Compose
-- [ ] Maven/Gradle familiarity
-- [ ] Basic REST API knowledge
-- [ ] Git version control
+- [x] Java 17+ installed
+- [x] Spring Boot 3.x experience
+- [x] Docker & Docker Compose
+- [x] Maven/Gradle familiarity
+- [x] Basic REST API knowledge
+- [x] Git version control
 
 ---
 

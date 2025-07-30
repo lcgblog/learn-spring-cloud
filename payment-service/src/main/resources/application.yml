@@ -28,23 +28,31 @@ spring:
       enabled: true
       path: /h2-console
 
-# Eureka客户端配置
+# Eureka Client 配置
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+      defaultZone: http://localhost:8761/eureka/
     register-with-eureka: true
     fetch-registry: true
-    healthcheck:
-      enabled: true
+    # 更频繁地从注册中心获取服务列表
+    registry-fetch-interval-seconds: 5
+    # 初始实例信息复制延迟时间
+    initial-instance-info-replication-interval-seconds: 5
+    # 实例信息复制间隔时间
+    instance-info-replication-interval-seconds: 5
   instance:
     prefer-ip-address: true
-    lease-renewal-interval-in-seconds: 10
-    lease-expiration-duration-in-seconds: 30
-    instance-id: ${spring.application.name}:${server.port}
+    # 更频繁的心跳，更快检测到服务状态变化
+    lease-renewal-interval-in-seconds: 5
+    # 更短的过期时间，更快清理失效实例
+    lease-expiration-duration-in-seconds: 15
+    # 元数据，标识服务版本
     metadata-map:
-      version: 1.0.0
-      description: "Payment Service with Circuit Breaker and Resilience Patterns"
+      version: "1.0.0"
+      startup: ${random.long}
+      instance-id: ${spring.application.name}:${spring.application.instance_id:${server.port}}
+      port: ${server.port}
 
 # Actuator配置
 management:

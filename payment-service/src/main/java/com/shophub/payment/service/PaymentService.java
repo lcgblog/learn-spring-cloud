@@ -45,6 +45,7 @@ public class PaymentService {
     @TimeLimiter(name = "stripe-payment")
     @Bulkhead(name = "stripe-payment", type = Bulkhead.Type.THREADPOOL)
     public CompletableFuture<Payment> processStripePayment(Long orderId, Long userId, BigDecimal amount, String currency) {
+        logger.info("Submitting Stripe payment for order: {}, amount: {}", orderId, amount);
         return CompletableFuture.supplyAsync(() -> {
             logger.info("Processing Stripe payment for order: {}, amount: {}", orderId, amount);
             
@@ -95,6 +96,7 @@ public class PaymentService {
     @TimeLimiter(name = "paypal-payment")
     @Bulkhead(name = "paypal-payment", type = Bulkhead.Type.THREADPOOL)
     public CompletableFuture<Payment> processPaypalPayment(Long orderId, Long userId, BigDecimal amount, String currency) {
+        logger.info("Submitting PayPal payment for order: {}, amount: {}", orderId, amount);
         return CompletableFuture.supplyAsync(() -> {
             logger.info("Processing PayPal payment for order: {}, amount: {}", orderId, amount);
             

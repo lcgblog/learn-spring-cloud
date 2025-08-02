@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: payment-service
+  config:
+    import: "configserver:"
   
   # H2数据库配置
   datasource:
@@ -59,16 +61,30 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,circuitbreakers,circuitbreakerevents,refresh
+        include: health,info,metrics,circuitbreakers,circuitbreakerevents,refresh,prometheus
   endpoint:
     health:
       show-details: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
   health:
     circuitbreakers:
       enabled: true
   info:
     env:
       enabled: true
+  # Week 7: 分布式追踪配置
+  tracing:
+    sampling:
+      probability: 1.0
+    zipkin:
+      endpoint: http://localhost:9411/api/v2/spans
 
 # 应用信息
 info:
@@ -191,3 +207,26 @@ logging:
     org.springframework.cloud.circuitbreaker: DEBUG
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+---
+# Docker profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+  cloud:
+    config:
+      uri: http://config-server:8888
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    hostname: payment-service
+
+# Week 7: Docker 环境下的分布式追踪配置
+management:
+  tracing:
+    zipkin:
+      endpoint: http://zipkin:9411/api/v2/spans

@@ -14,19 +14,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Product Service** (port 8082/8084/8085): Product catalog management with load balancing support
 - **Order Service** (port 8083): Order processing with Feign client for product service calls
 - **Payment Service** (port 8086): Payment processing with circuit breaker protection
+- **Metrics Collector** (port 8087): Centralized observability and distributed tracing service
 - **Redis** (port 6379): Distributed rate limiting and caching
+- **Zipkin** (port 9411): Distributed tracing visualization
+- **Prometheus** (port 9090): Metrics collection and monitoring
 
-All services are registered with Eureka and implement health checks via Spring Boot Actuator. Week 4 added multi-instance Product Service deployment for load balancing demonstration. Week 5 introduced centralized configuration management with feature toggles and environment-specific configurations. Week 6 implemented circuit breaker and resilience patterns for fault tolerance and graceful degradation.
+All services are registered with Eureka and implement health checks via Spring Boot Actuator. Week 4 added multi-instance Product Service deployment for load balancing demonstration. Week 5 introduced centralized configuration management with feature toggles and environment-specific configurations. Week 6 implemented circuit breaker and resilience patterns for fault tolerance and graceful degradation. Week 7 added comprehensive observability with distributed tracing, metrics collection, and monitoring dashboard.
 
 ### Tech Stack
 - **Spring Boot 3.2.0** with Java 17
 - **Spring Cloud 2023.0.0** (Eureka, Gateway, OpenFeign, LoadBalancer, Config)
 - **Maven** for dependency management
 - **H2 Database** (user-service)
-- **Redis** for distributed rate limiting
+- **Redis** for distributed rate limiting and caching
 - **Resilience4j** for retry and circuit breaker patterns
 - **Docker Compose** for containerized deployment
 - **Spring Cloud Config** for centralized configuration management
+- **Micrometer + Prometheus** for metrics collection and monitoring
+- **Zipkin** for distributed tracing and observability
 
 ## Development Commands
 
@@ -43,6 +48,8 @@ learn-spring-cloud/
 ├── product-service/     # 产品服务
 ├── order-service/       # 订单服务
 ├── payment-service/     # 支付服务
+├── metrics-collector/   # 指标收集服务
+├── monitoring/          # 监控配置
 └── build-all.sh        # 一键构建脚本
 ```
 
@@ -67,6 +74,7 @@ cd user-service && mvn spring-boot:run     # 4. 业务服务
 cd product-service && mvn spring-boot:run  # 5. 业务服务
 cd order-service && mvn spring-boot:run    # 6. 业务服务
 cd payment-service && mvn spring-boot:run  # 7. 支付服务
+cd metrics-collector && mvn spring-boot:run # 8. 指标收集服务
 
 # Windows batch script to start all services
 ./start-services.bat
@@ -88,6 +96,9 @@ cd payment-service && mvn spring-boot:run  # 7. 支付服务
 
 # Test Circuit Breaker functionality (Week 6)
 ./test-week6-circuit-breaker.sh
+
+# Test Observability and Distributed Tracing functionality (Week 7)
+./test-week7-observability.sh
 ```
 
 ### Docker Deployment
@@ -168,6 +179,18 @@ curl http://localhost:8082/api/products/recommendations?userId=1&category=smartp
 curl http://localhost:8082/api/products/popular?category=laptop  # Test popular products
 curl http://localhost:8086/api/payments/demo/circuit-breaker  # Trigger circuit breaker demo
 curl http://localhost:8080/actuator/circuitbreakers  # All circuit breaker states via Gateway
+
+# Week 7: Test Observability and Distributed Tracing
+curl http://localhost:8087/actuator/health  # Metrics Collector health
+curl http://localhost:8087/api/metrics/health-summary  # Centralized health summary
+curl http://localhost:8087/api/metrics/services  # All registered services
+curl http://localhost:8087/api/metrics/current  # Current metrics data
+curl http://localhost:8087/api/metrics/traces/active  # Active distributed traces
+curl http://localhost:9411/health  # Zipkin server health
+curl http://localhost:9090/-/healthy  # Prometheus server health
+curl http://localhost:8087/actuator/prometheus  # Metrics Collector Prometheus metrics
+curl http://localhost:8080/actuator/prometheus  # API Gateway Prometheus metrics
+curl http://localhost:8082/actuator/prometheus  # Product Service Prometheus metrics
 ```
 
 ## Service Endpoints
@@ -204,6 +227,7 @@ curl http://localhost:8080/actuator/circuitbreakers  # All circuit breaker state
 - Product Service: `http://localhost:8082/api/products`  
 - Order Service: `http://localhost:8083/api/orders`
 - Payment Service: `http://localhost:8086/api/payments`
+- Metrics Collector: `http://localhost:8087/api/metrics`
 
 **Week 5: Configuration and Feature Toggle Endpoints**
 - Product Features: `http://localhost:8082/api/products/features`
@@ -211,15 +235,20 @@ curl http://localhost:8080/actuator/circuitbreakers  # All circuit breaker state
 - Product Inventory: `http://localhost:8082/api/products/{id}/inventory`
 - Config Refresh: `POST http://localhost:8082/actuator/refresh`
 
-**Week 6: Circuit Breaker and Resilience Endpoints**
-- Payment Processing: `POST http://localhost:8086/api/payments/process`
-- Payment Status: `GET http://localhost:8086/api/payments/order/{orderId}`
-- Circuit Breaker Status: `GET http://localhost:8086/api/payments/circuit-breaker/status`
-- Order Payment: `POST http://localhost:8083/api/orders/{orderId}/payment`
-- Product Recommendations: `GET http://localhost:8082/api/products/recommendations`
-- Popular Products: `GET http://localhost:8082/api/products/popular`
-- Circuit Breaker Demo: `POST http://localhost:8086/api/payments/demo/circuit-breaker`
-- All Circuit Breakers: `GET http://localhost:8080/actuator/circuitbreakers`
+**Week 7: Observability and Distributed Tracing Endpoints**
+- Metrics Collector Health: `GET http://localhost:8087/actuator/health`
+- Metrics Summary: `GET http://localhost:8087/api/metrics/health-summary`
+- Current Metrics: `GET http://localhost:8087/api/metrics/current`
+- Active Traces: `GET http://localhost:8087/api/metrics/traces/active`
+- Registered Services: `GET http://localhost:8087/api/metrics/services`
+- Zipkin UI: `http://localhost:9411`
+- Prometheus UI: `http://localhost:9090`
+- All Services Prometheus: `GET http://localhost:{port}/actuator/prometheus`
+
+### Monitoring Stack (Week 7)
+- **Zipkin Server** (port 9411): Distributed tracing visualization
+- **Prometheus Server** (port 9090): Metrics collection and querying
+- **Metrics Collector** (port 8087): Centralized observability service
 
 ### Redis (6379)
 - Used for distributed rate limiting
@@ -259,6 +288,7 @@ Comprehensive test scripts provide end-to-end validation:
 3. **Load Balancing**: `test-week4-load-balancing.sh` - Multi-instance deployment, client-side load balancing
 4. **Configuration Management**: `test-week5-config-management.sh` - Feature toggles, config refresh, environment profiles
 5. **Circuit Breaker**: `test-week6-circuit-breaker.sh` - Resilience patterns, fault tolerance, graceful degradation
+6. **Observability**: `test-week7-observability.sh` - Distributed tracing, metrics collection, monitoring dashboard
 
 Each script includes:
 - Service startup verification
@@ -297,8 +327,12 @@ Each script includes:
 - Monitor circuit breaker states via Actuator endpoints
 - Implement graceful degradation strategies for user experience
 
-### Service Configuration
-- Environment-specific configs use Spring profiles (default, docker)
-- Eureka client settings configured per service in `application.yml`
-- Docker networking uses service names as hostnames
-- Resilience4j configuration per service and pattern type
+### Observability and Distributed Tracing (Week 7)
+- Create dedicated Metrics Collector Service with Spring Boot + Eureka Client
+- Add Micrometer tracing dependencies and Zipkin integration  
+- Configure `@EnableDiscoveryClient` and `@EnableFeignClients` for service communication
+- Implement Feign clients for all services with fallback mechanisms
+- Set up Prometheus metrics export via `/actuator/prometheus` endpoints
+- Configure Docker deployment with Zipkin and Prometheus containers
+- Use `@Scheduled` for automated metrics collection every 30 seconds
+- Monitor circuit breaker states and service health via centralized dashboard

@@ -1,0 +1,41 @@
+# Metrics Collector Development Environment Configuration
+
+# 开发环境特定配置
+spring:
+  data:
+    redis:
+      host: js2.blockelite.cn
+      port: 10659
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+  
+# 可观测性开发配置  
+observability:
+  collection:
+    interval: 15s  # 开发环境更频繁收集
+    batch-size: 50
+    
+  tracing:
+    sample-rate: 1.0  # 开发环境100%采样
+    
+  metrics:
+    custom:
+      debug-enabled: true
+      
+# 日志配置
+logging:
+  level:
+    com.shophub.metrics: DEBUG
+    io.micrometer: DEBUG
+    io.micrometer.tracing: TRACE
+    org.springframework.cloud.sleuth: DEBUG
+    
+# 开发环境特性开关
+feature:
+  development-mode: true
+  debug-tracing: true
+  mock-data: false

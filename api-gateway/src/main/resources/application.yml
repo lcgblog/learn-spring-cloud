@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: api-gateway
+  config:
+    import: "configserver:"
   
   # Spring Cloud Gateway 配置
   cloud:
@@ -76,6 +78,21 @@ spring:
             - AddRequestHeader=X-Gateway-Route, payment-service
             - AddRequestHeader=X-Circuit-Breaker-Enabled, true
             
+        # 指标收集服务路由 (Week 7 新增)
+        - id: metrics-collector
+          uri: lb://metrics-collector
+          predicates:
+            - Path=/api/metrics/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 200
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
+            - AddRequestHeader=X-Gateway-Route, metrics-collector
+            - AddRequestHeader=X-Observability-Enabled, true
+            
         # Eureka Dashboard 代理 (开发用)
         - id: eureka-server
           uri: lb://eureka-server
@@ -135,12 +152,32 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,gateway
+        include: health,info,metrics,gateway,prometheus,circuitbreakers
   endpoint:
     health:
       show-details: always
     gateway:
       enabled: true
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        spring.cloud.gateway.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,300ms,500ms,1s
+  # Week 7: 分布式追踪配置
+  tracing:
+    sampling:
+      probability: 1.0
+    zipkin:
+      endpoint: http://localhost:9411/api/v2/spans
 
 # 日志配置
 logging:
@@ -148,8 +185,9 @@ logging:
     org.springframework.cloud.gateway: DEBUG
     org.springframework.web.reactive: DEBUG
     reactor.netty: INFO
+    io.micrometer: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%logger{36}] - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%logger{36}] [%X{traceId:-},%X{spanId:-}] - %msg%n"
 
 ---
 # Docker profile configuration
@@ -166,3 +204,9 @@ eureka:
   client:
     service-url:
       defaultZone: http://eureka-server:8761/eureka/
+
+# Week 7: Docker 环境下的分布式追踪配置
+management:
+  tracing:
+    zipkin:
+      endpoint: http://zipkin:9411/api/v2/spans

@@ -46,6 +46,32 @@ eureka:
       instance-id: ${spring.application.name}:${spring.application.instance_id:${server.port}}
       port: ${server.port}
 
+# Management配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,metrics,prometheus,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,300ms,500ms,1s
+  health:
+    circuitbreakers:
+      enabled: true
+
 # Resilience4j配置
 resilience4j:
   circuitbreaker:

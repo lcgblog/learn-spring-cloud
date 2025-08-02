@@ -1,0 +1,76 @@
+# Metrics Collector Service Configuration
+
+# 服务基本信息
+service:
+  name: metrics-collector
+  description: "分布式追踪和指标收集服务"
+  version: "1.0.0"
+
+# Week 7: 可观测性特性配置
+observability:
+  collection:
+    enabled: true
+    interval: 30s
+    batch-size: 100
+    timeout: 10s
+    services:
+      - user-service
+      - product-service
+      - order-service
+      - payment-service
+      - api-gateway
+  
+  tracing:
+    enabled: true
+    sample-rate: 1.0
+    export-timeout: 30s
+    batch-timeout: 5s
+    max-export-batch-size: 512
+    
+  metrics:
+    custom:
+      enabled: true
+      business-metrics: true
+      performance-metrics: true
+      cache-metrics: true
+    
+    export:
+      prometheus:
+        enabled: true
+        step: 1m
+        descriptions: true
+      
+    distribution:
+      percentiles:
+        - 0.5
+        - 0.75
+        - 0.95
+        - 0.99
+      slo:
+        - 50ms
+        - 100ms
+        - 200ms
+        - 500ms
+        - 1s
+
+# 缓存配置
+cache:
+  redis:
+    enabled: true
+    key-prefix: "shophub:metrics:"
+    ttl: 300s
+    max-connections: 10
+    
+# 健康检查配置
+health:
+  circuit-breaker:
+    enabled: true
+  diskspace:
+    enabled: true
+    threshold: 10MB
+    
+# 特性开关
+feature:
+  auto-scaling-metrics: true
+  anomaly-detection: false
+  alerting: false

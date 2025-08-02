@@ -1,0 +1,77 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # ShopHub Config Server
+  - job_name: 'config-server'
+    static_configs:
+      - targets: ['host.docker.internal:8888']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 30s
+
+  # ShopHub Eureka Server
+  - job_name: 'eureka-server'
+    static_configs:
+      - targets: ['host.docker.internal:8761']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 30s
+
+  # ShopHub API Gateway
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+
+  # ShopHub User Service
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['host.docker.internal:8081']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+
+  # ShopHub Product Service
+  - job_name: 'product-service'
+    static_configs:
+      - targets: ['host.docker.internal:8082']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+
+  # ShopHub Order Service
+  - job_name: 'order-service'
+    static_configs:
+      - targets: ['host.docker.internal:8083']
+    metrics_path: '/actuator/prometheus' 
+    scrape_interval: 15s
+
+  # ShopHub Payment Service
+  - job_name: 'payment-service'
+    static_configs:
+      - targets: ['host.docker.internal:8086']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 15s
+
+  # ShopHub Metrics Collector
+  - job_name: 'metrics-collector'
+    static_configs:
+      - targets: ['host.docker.internal:9087']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 10s
+
+  # Prometheus自监控
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+# 告警规则文件配置（可选）
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+# 告警管理器配置（可选）
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093

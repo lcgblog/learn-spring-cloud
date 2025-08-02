@@ -1,0 +1,52 @@
+# Metrics Collector Production Environment Configuration
+
+# 生产环境特定配置
+spring:
+  redis:
+    host: redis-cluster
+    port: 6379
+    timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 16
+        max-idle: 8
+        min-idle: 2
+
+# 生产环境可观测性配置
+observability:
+  collection:
+    interval: 60s  # 生产环境较少收集频率
+    batch-size: 200
+    timeout: 30s
+    
+  tracing:
+    sample-rate: 0.1  # 生产环境10%采样
+    
+  metrics:
+    custom:
+      debug-enabled: false
+      
+# 性能优化配置
+performance:
+  async:
+    core-pool-size: 4
+    max-pool-size: 16
+    queue-capacity: 1000
+    
+# 安全配置
+security:
+  metrics:
+    sensitive-data-masking: true
+    
+# 日志配置 - 生产环境
+logging:
+  level:
+    com.shophub.metrics: INFO
+    io.micrometer: WARN
+    root: WARN
+    
+# 生产环境特性开关
+feature:
+  development-mode: false
+  debug-tracing: false
+  production-optimizations: true

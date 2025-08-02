@@ -9,6 +9,13 @@ import java.util.concurrent.CompletableFuture;
 import com.shophub.product.service.ProductRecommendationService;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.micrometer.core.annotation.Timed;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.annotation.NewSpan;
+import io.micrometer.tracing.annotation.SpanTag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
@@ -26,12 +33,15 @@ import org.springframework.web.bind.annotation.RestController;
  * 提供产品管理的 REST API 接口
  * 支持与其他微服务的通信和配置动态刷新
  * Week 6: 添加熔断器和韧性模式支持
+ * Week 7: 添加分布式追踪和可观测性支持
  */
 @RestController
 @RequestMapping("/api/products")
 @CrossOrigin(origins = "*")
 @RefreshScope
 public class ProductController {
+    
+    private static final Logger logger = LoggerFactory.getLogger(ProductController.class);
     
     @Value("${server.port}")
     private String serverPort;
@@ -61,6 +71,21 @@ public class ProductController {
     @Autowired
     private CircuitBreakerRegistry circuitBreakerRegistry;
     
+    @Autowired
+    private MeterRegistry meterRegistry;
+    
+    private final Counter requestCounter;
+    private final Counter errorCounter;
+
+    public ProductController(MeterRegistry meterRegistry) {
+        this.requestCounter = Counter.builder("product.requests.total")
+                .description("Total product service requests")
+                .register(meterRegistry);
+        this.errorCounter = Counter.builder("product.errors.total")
+                .description("Total product service errors")
+                .register(meterRegistry);
+    }
+    
     // 模拟产品数据 (实际项目中应该连接数据库)
     private static final List<Map<String, Object>> MOCK_PRODUCTS = Arrays.asList(
         createProduct(1L, "iPhone 15 Pro", "Apple", 8999.00, true),
@@ -75,7 +100,12 @@ public class ProductController {
      * GET /api/products/{productId}/exists
      */
     @GetMapping("/{productId}/exists")
-    public ResponseEntity<Map<String, Object>> checkProductExists(@PathVariable Long productId) {
+    @NewSpan("product-exists-check")
+    @Timed(value = "product.exists.check", description = "Time taken to check if product exists")
+    public ResponseEntity<Map<String, Object>> checkProductExists(@SpanTag("productId") @PathVariable Long productId) {
+        requestCounter.increment();
+        logger.info("Checking if product exists: {}", productId);
+        
         boolean exists = MOCK_PRODUCTS.stream()
             .anyMatch(product -> productId.equals(product.get("id")));
         
@@ -85,6 +115,7 @@ public class ProductController {
         response.put("serviceInstance", serviceName + ":" + serverPort);
         response.put("timestamp", System.currentTimeMillis());
         
+        logger.info("Product {} exists check result: {}", productId, exists);
         return ResponseEntity.ok(response);
     }
     
@@ -157,7 +188,12 @@ public class ProductController {
      * GET /api/products/health
      */
     @GetMapping("/health")
+    @NewSpan("product-health-check")
+    @Timed(value = "product.health.check", description = "Time taken for product service health check")
     public ResponseEntity<Map<String, Object>> healthCheck() {
+        requestCounter.increment();
+        logger.info("Product service health check requested");
+        
         Map<String, Object> health = new HashMap<>();
         health.put("status", "UP");
         health.put("service", serviceName);
@@ -166,6 +202,7 @@ public class ProductController {
         health.put("timestamp", System.currentTimeMillis());
         health.put("message", "Product Service 实例运行正常，端口: " + serverPort);
         
+        logger.info("Product service health check completed: UP");
         return ResponseEntity.ok(health);
     }
     

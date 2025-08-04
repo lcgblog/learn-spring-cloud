@@ -100,11 +100,7 @@
             <artifactId>micrometer-tracing-bridge-otel</artifactId>
         </dependency>
 
-        <!-- Zipkin Reporter for distributed tracing -->
-        <dependency>
-            <groupId>io.zipkin.reporter2</groupId>
-            <artifactId>zipkin-reporter-brave</artifactId>
-        </dependency>
+        <!-- OpenTelemetry Zipkin Exporter (inherited from parent) -->
     </dependencies>
 
     <build>

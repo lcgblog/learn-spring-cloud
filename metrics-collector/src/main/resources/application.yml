@@ -51,8 +51,6 @@ eureka:
     lease-expiration-duration-in-seconds: 30
 
 management:
-  server:
-    port: 9087
   endpoints:
     web:
       exposure:

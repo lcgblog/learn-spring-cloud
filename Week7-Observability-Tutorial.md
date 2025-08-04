@@ -429,7 +429,7 @@ scrape_configs:
 
   - job_name: 'metrics-collector'
     static_configs:
-      - targets: ['metrics-collector:9087']
+      - targets: ['metrics-collector:8087']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
 ```

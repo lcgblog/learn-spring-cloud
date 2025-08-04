@@ -171,7 +171,6 @@ services:
     build: ./metrics-collector
     ports:
       - "8087:8087"
-      - "9087:9087"  # Management port
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/

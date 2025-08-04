@@ -155,10 +155,10 @@
             <artifactId>micrometer-tracing-bridge-otel</artifactId>
         </dependency>
 
-        <!-- 可观测性 - Zipkin Reporter (分布式追踪) -->
+        <!-- 可观测性 - OpenTelemetry Zipkin Exporter (分布式追踪) -->
         <dependency>
-            <groupId>io.zipkin.reporter2</groupId>
-            <artifactId>zipkin-reporter-brave</artifactId>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-exporter-zipkin</artifactId>
         </dependency>
     </dependencies>
 

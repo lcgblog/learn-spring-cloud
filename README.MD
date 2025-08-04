@@ -626,7 +626,7 @@ By the end of this framework, you'll build a production-ready microservices arch
 **✅ 实现完成详情**:
 
 ### 📊 Metrics Collector Service
-- **端口**: 8087 (应用端口) + 9087 (管理端口)
+- **端口**: 8087 (应用和管理端口)
 - **功能**: 集中式指标收集、分布式追踪、可观测性监控
 - **核心特性**: 
   - 基于Spring Boot的独立微服务架构
@@ -692,7 +692,7 @@ By the end of this framework, you'll build a production-ready microservices arch
 **完整容器化部署**：
 - ✅ **Zipkin**: openzipkin/zipkin镜像，9411端口
 - ✅ **Prometheus**: prom/prometheus镜像，9090端口，配置文件挂载
-- ✅ **Metrics Collector**: 自定义镜像，8087+9087端口
+- ✅ **Metrics Collector**: 自定义镜像，8087端口
 - ✅ **服务依赖**: 健康检查和启动顺序管理
 
 **监控配置持久化**：

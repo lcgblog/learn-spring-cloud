@@ -25,7 +25,7 @@ Week 7 实现了完整的分布式追踪和可观测性解决方案，通过集�
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │              Metrics Collector Service                      │ │
-│  │                     (8087/9087)                            │ │
+│  │                       (8087)                              │ │
 │  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐          │ │
 │  │  │   Feign     │ │   Redis     │ │  Micrometer │          │ │
 │  │  │  Clients    │ │   Cache     │ │   Tracing   │          │ │
@@ -139,7 +139,7 @@ server:
 
 management:
   server:
-    port: 9087
+    port: 8087
   endpoints:
     web:
       exposure:
@@ -679,7 +679,7 @@ services:
     build: ./metrics-collector
     ports:
       - "8087:8087"
-      - "9087:9087"  # Management port
+      - "8087:8087"  # Management port
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
@@ -789,7 +789,7 @@ scrape_configs:
   # ShopHub Metrics Collector
   - job_name: 'metrics-collector'
     static_configs:
-      - targets: ['metrics-collector:9087']
+      - targets: ['metrics-collector:8087']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
 

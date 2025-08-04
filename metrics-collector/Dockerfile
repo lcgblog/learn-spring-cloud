@@ -22,7 +22,7 @@ RUN chown -R shophub:shophub /app
 USER shophub
 
 # Expose ports
-EXPOSE 8087 9087
+EXPOSE 8087
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \

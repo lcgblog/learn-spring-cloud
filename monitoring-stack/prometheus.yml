@@ -55,7 +55,7 @@ scrape_configs:
   # ShopHub Metrics Collector
   - job_name: 'metrics-collector'
     static_configs:
-      - targets: ['host.docker.internal:9087']
+      - targets: ['host.docker.internal:8087']
     metrics_path: '/actuator/prometheus'
     scrape_interval: 10s
 

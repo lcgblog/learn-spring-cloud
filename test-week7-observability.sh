@@ -176,7 +176,7 @@ else
 fi
 
 log_info "检查指标收集服务Prometheus指标..."
-if curl -s "http://localhost:9087/actuator/prometheus" | grep -q "shophub_requests_total"; then
+if curl -s "http://localhost:8087/actuator/prometheus" | grep -q "shophub_requests_total"; then
     log_success "指标收集服务自定义指标导出正常"
 else
     log_error "指标收集服务自定义指标导出失败"
@@ -336,7 +336,7 @@ log_success "✅ 可观测性仪表板功能正常"
 echo ""
 log_info "=== 可观测性访问地址 ==="
 echo "🔍 指标收集服务: $METRICS_COLLECTOR"
-echo "📊 指标收集管理端口: http://localhost:9087/actuator"
+echo "📊 指标收集管理端口: http://localhost:8087/actuator"
 echo "🎯 Zipkin追踪界面: $ZIPKIN (如果启动)"
 echo "📈 Prometheus监控: $PROMETHEUS (如果启动)"
 echo "🌐 API网关: $API_GATEWAY"

@@ -8,30 +8,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Architecture
 - **Config Server** (port 8888): Centralized configuration management with Git backend support
-- **Eureka Server** (port 8761): Service discovery and registration center  
+- **Eureka Server** (port 8761): Service discovery and registration center
 - **API Gateway** (port 8080): Single entry point with routing, rate limiting, and CORS support
 - **User Service** (port 8081): User management with H2 database and Feign client integration
 - **Product Service** (port 8082/8084/8085): Product catalog management with load balancing support
 - **Order Service** (port 8083): Order processing with Feign client for product service calls
 - **Payment Service** (port 8086): Payment processing with circuit breaker protection
-- **Metrics Collector** (port 8087): Centralized observability and distributed tracing service
-- **Redis** (port 6379): Distributed rate limiting and caching
-- **Zipkin** (port 9411): Distributed tracing visualization
-- **Prometheus** (port 9090): Metrics collection and monitoring
+- **Metrics Collector** (port 8087): Centralized observability and distributed tracing service with Redis caching
+- **Redis** (port 6379): Distributed rate limiting, caching, and metrics storage
+- **Zipkin** (port 9411): Distributed tracing visualization and analysis
+- **Prometheus** (port 9090): Metrics collection, monitoring, and alerting
+- **Grafana** (port 3000): Monitoring dashboards and visualization
 
 All services are registered with Eureka and implement health checks via Spring Boot Actuator. Week 4 added multi-instance Product Service deployment for load balancing demonstration. Week 5 introduced centralized configuration management with feature toggles and environment-specific configurations. Week 6 implemented circuit breaker and resilience patterns for fault tolerance and graceful degradation. Week 7 added comprehensive observability with distributed tracing, metrics collection, and monitoring dashboard.
 
 ### Tech Stack
 - **Spring Boot 3.2.0** with Java 17
 - **Spring Cloud 2023.0.0** (Eureka, Gateway, OpenFeign, LoadBalancer, Config)
-- **Maven** for dependency management
+- **Maven** for dependency management with multi-module structure
 - **H2 Database** (user-service)
-- **Redis** for distributed rate limiting and caching
-- **Resilience4j** for retry and circuit breaker patterns
+- **Redis** for distributed rate limiting, caching, and metrics storage
+- **Resilience4j** for retry, circuit breaker, bulkhead, and time limiter patterns
 - **Docker Compose** for containerized deployment
 - **Spring Cloud Config** for centralized configuration management
-- **Micrometer + Prometheus** for metrics collection and monitoring
-- **Zipkin** for distributed tracing and observability
+- **Micrometer + OpenTelemetry** for distributed tracing and metrics collection
+- **Prometheus** for metrics aggregation, monitoring, and alerting
+- **Zipkin** for distributed tracing visualization and analysis
+- **Grafana** for monitoring dashboards and data visualization
+- **Jackson** for JSON processing and JSR310 time handling
 
 ## Development Commands
 
@@ -48,8 +52,8 @@ learn-spring-cloud/
 ├── product-service/     # 产品服务
 ├── order-service/       # 订单服务
 ├── payment-service/     # 支付服务
-├── metrics-collector/   # 指标收集服务
-├── monitoring/          # 监控配置
+├── metrics-collector/   # 指标收集服务 (Week 7)
+├── monitoring-stack/    # 监控技术栈配置 (Prometheus, Grafana, Zipkin)
 └── build-all.sh        # 一键构建脚本
 ```
 
@@ -57,6 +61,11 @@ learn-spring-cloud/
 - Spring Boot: 3.2.0
 - Spring Cloud: 2023.0.0
 - Java: 17
+- Micrometer: 1.12.0
+- OpenTelemetry: 1.32.0
+- Resilience4j: 3.0.1
+- MySQL: 8.0.33
+- H2: 2.2.224
 - Maven插件版本统一管理
 
 ### Build and Run Services Locally
@@ -229,29 +238,65 @@ curl http://localhost:8082/actuator/prometheus  # Product Service Prometheus met
 - Payment Service: `http://localhost:8086/api/payments`
 - Metrics Collector: `http://localhost:8087/api/metrics`
 
+### Payment Service (port 8086)
+- **POST** `/api/payments/process` - Process payment with circuit breaker protection
+- **GET** `/api/payments/{id}` - Get payment details
+- **GET** `/api/payments/health` - Health check endpoint
+- **GET** `/api/payments/circuit-breaker/status` - Circuit breaker status
+- **GET** `/api/payments/demo/circuit-breaker` - Trigger circuit breaker demo
+- **GET** `/actuator/health` - Actuator health endpoint
+- **GET** `/actuator/circuitbreakers` - Circuit breaker status
+- **GET** `/actuator/circuitbreakerevents` - Circuit breaker events
+
+### Metrics Collector (port 8087)
+- **GET** `/api/metrics/collect` - Trigger metrics collection from all services
+- **GET** `/api/metrics/health-summary` - Get aggregated health summary
+- **GET** `/api/metrics/current` - Get current metrics data
+- **GET** `/api/metrics/services` - Get all registered services
+- **GET** `/api/metrics/traces/active` - Get active distributed traces
+- **POST** `/api/metrics/cache/clear` - Clear metrics cache
+- **GET** `/actuator/health` - Actuator health endpoint
+- **GET** `/actuator/prometheus` - Prometheus metrics endpoint
+- **GET** `/actuator/metrics` - Micrometer metrics endpoint
+
 **Week 5: Configuration and Feature Toggle Endpoints**
 - Product Features: `http://localhost:8082/api/products/features`
 - Product Recommendations: `http://localhost:8082/api/products/recommendations`
 - Product Inventory: `http://localhost:8082/api/products/{id}/inventory`
 - Config Refresh: `POST http://localhost:8082/actuator/refresh`
 
-**Week 7: Observability and Distributed Tracing Endpoints**
-- Metrics Collector Health: `GET http://localhost:8087/actuator/health`
-- Metrics Summary: `GET http://localhost:8087/api/metrics/health-summary`
-- Current Metrics: `GET http://localhost:8087/api/metrics/current`
-- Active Traces: `GET http://localhost:8087/api/metrics/traces/active`
-- Registered Services: `GET http://localhost:8087/api/metrics/services`
-- Zipkin UI: `http://localhost:9411`
-- Prometheus UI: `http://localhost:9090`
-- All Services Prometheus: `GET http://localhost:{port}/actuator/prometheus`
+**Week 6: Circuit Breaker and Resilience Endpoints**
+- Payment Circuit Breaker: `http://localhost:8086/api/payments/demo/circuit-breaker`
+- Circuit Breaker Status: `http://localhost:8086/actuator/circuitbreakers`
+- Metrics Collector: `http://localhost:8087/api/metrics`
+
+**Week 7: Observability and Monitoring Endpoints**
+- Zipkin Tracing UI: `http://localhost:9411`
+- Prometheus Metrics: `http://localhost:9090`
+- Grafana Dashboard: `http://localhost:3000` (admin/admin)
+- Metrics Collection: `http://localhost:8087/api/metrics/collect`
+- Health Summary: `http://localhost:8087/api/metrics/health-summary`
+- Active Traces: `http://localhost:8087/api/metrics/traces/active`
+- Service Registry: `http://localhost:8087/api/metrics/services`
+
+
 
 ### Monitoring Stack (Week 7)
-- **Zipkin Server** (port 9411): Distributed tracing visualization
-- **Prometheus Server** (port 9090): Metrics collection and querying
-- **Metrics Collector** (port 8087): Centralized observability service
+- **Zipkin Server** (port 9411): Distributed tracing visualization and analysis
+- **Prometheus** (port 9090): Metrics collection, aggregation, and alerting
+- **Grafana** (port 3000): Monitoring dashboards and data visualization
+- **Metrics Collector** (port 8087): Centralized observability service with:
+  - Service health monitoring
+  - Distributed tracing coordination
+  - Metrics aggregation and caching
+  - OpenTelemetry integration
 
 ### Redis (6379)
-- Used for distributed rate limiting
+- **Rate Limiting**: Distributed rate limiting for API Gateway
+- **Caching**: Application-level caching for improved performance
+- **Metrics Storage**: Temporary storage for collected metrics data
+- **Session Storage**: Distributed session management (if needed)
+- **Tracing Data**: Temporary storage for distributed tracing spans
 - Connection: `redis://localhost:6379`
 
 ## Key Configuration

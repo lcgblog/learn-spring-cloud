@@ -18,25 +18,25 @@
     <description>Service Discovery Server for ShopHub Microservices</description>
 
     <dependencies>
-        <!-- Spring Boot Starter Web -->
+        <!-- ========== Web框架 ========== -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- Eureka Server -->
+        <!-- ========== 服务注册中心 ========== -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
         </dependency>
 
-        <!-- Actuator for health checks -->
+        <!-- ========== 监控和健康检查 ========== -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-
-        <!-- Micrometer Prometheus Registry -->
+        
+        <!-- Prometheus指标导出 -->
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>

@@ -6,6 +6,9 @@ import com.shophub.metrics.service.MetricsCollectionService;
 import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.observation.annotation.Observed;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.annotation.NewSpan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api/metrics")
@@ -32,6 +36,9 @@ public class MetricsController {
 
     @Autowired
     private Counter requestCounter;
+
+    @Autowired
+    private Tracer tracer;
 
     @GetMapping("/health")
     @Timed(value = "metrics.controller.health", description = "Health check endpoint response time")
@@ -184,5 +191,31 @@ public class MetricsController {
         logger.info("Observability features requested");
         
         return ResponseEntity.ok(features);
+    }
+
+    @GetMapping("/testSpan")
+    @Observed(name = "test-span-main")
+    public String testSpan()throws Exception{
+        span1();
+        span2();
+        metricsCollectionService.span3();
+        metricsCollectionService.span4();
+        return "completed";
+    }
+
+    //不会生效
+    @Observed
+    private void span1()throws Exception{
+        logger.info("Span1 start");
+        TimeUnit.SECONDS.sleep(1);
+    }
+
+    //不会生效
+    @Observed
+    public String span2()throws Exception{
+        logger.info("Span2 start");
+        TimeUnit.SECONDS.sleep(1);
+        logger.info("Span2 done");
+        return "span2";
     }
 }

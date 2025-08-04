@@ -10,6 +10,8 @@ import com.shophub.order.feign.PaymentServiceClient;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import io.micrometer.tracing.annotation.NewSpan;
+import io.micrometer.tracing.annotation.SpanTag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -203,7 +205,7 @@ public class OrderController {
             result.put("productServiceResponse", productHealth);
             result.put("timestamp", System.currentTimeMillis());
             result.put("message", "负载均衡调用成功");
-            
+            logger.info("负载均衡调用成功");
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             result.put("error", "负载均衡调用失败: " + e.getMessage());
@@ -216,7 +218,8 @@ public class OrderController {
      * GET /api/orders/verify-product/{productId}
      */
     @GetMapping("/verify-product/{productId}")
-    public ResponseEntity<Map<String, Object>> verifyProduct(@PathVariable Long productId) {
+    @NewSpan("order-verify-product")
+    public ResponseEntity<Map<String, Object>> verifyProduct(@SpanTag("productId") @PathVariable Long productId) {
         Map<String, Object> result = new HashMap<>();
         
         try {
@@ -226,7 +229,7 @@ public class OrderController {
             result.put("orderService", "order-service:8083");
             result.put("productVerification", productCheck);
             result.put("timestamp", System.currentTimeMillis());
-            
+            logger.info("通过Feign客户端调用产品服务");
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             result.put("error", "产品验证失败: " + e.getMessage());
@@ -342,4 +345,4 @@ public class OrderController {
         order.put("createdAt", System.currentTimeMillis() - (id * 86400000)); // 模拟不同的创建时间
         return order;
     }
-} 
+}

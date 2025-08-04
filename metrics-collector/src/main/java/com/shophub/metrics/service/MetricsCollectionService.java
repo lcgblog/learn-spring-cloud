@@ -7,6 +7,7 @@ import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import io.micrometer.observation.annotation.Observed;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
 import org.slf4j.Logger;
@@ -209,5 +210,17 @@ public class MetricsCollectionService {
         health.put("serviceStatus", serviceStatus);
         
         return health;
+    }
+
+    public void span3()throws Exception{
+        logger.info("Span3 start");
+        TimeUnit.SECONDS.sleep(1);
+    }
+
+    //验证 必须在另外一个service中aop才会生效
+    @Observed
+    public void span4()throws Exception{
+        logger.info("Span4 start");
+        TimeUnit.SECONDS.sleep(1);
     }
 }

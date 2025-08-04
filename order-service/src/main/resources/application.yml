@@ -116,6 +116,9 @@ feign:
     enabled: true
     alphanumeric-ids:
       enabled: true
+  # 分布式追踪配置
+  micrometer:
+    enabled: true
         
 # Resilience4j 配置 (熔断器和重试)
 resilience4j:
@@ -173,7 +176,8 @@ logging:
     io.github.resilience4j: DEBUG
     feign: DEBUG
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%logger{36}] - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{traceId:-}] %-5level [%logger{36}] - %msg%n"
+
 
 ---
 # Docker profile
@@ -196,4 +200,4 @@ eureka:
 management:
   tracing:
     zipkin:
-      endpoint: http://zipkin:9411/api/v2/spans 
+      endpoint: http://zipkin:9411/api/v2/spans

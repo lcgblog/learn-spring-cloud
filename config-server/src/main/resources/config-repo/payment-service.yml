@@ -1,32 +1,16 @@
-# Payment Service Configuration
+# Payment Service 服务独有配置
+# 只包含支付服务特定的业务配置
+
 server:
-  port: 8086
+  port: ${PORT:8086}
 
 spring:
-  # H2数据库配置
-  datasource:
-    url: jdbc:h2:mem:paymentdb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: password
-  
-  # JPA配置
-  jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: create-drop
-    show-sql: false
-    properties:
-      hibernate:
-        format_sql: false
+  application:
+    name: payment-service
 
-# Eureka Client 配置
+# 支付服务特定的Eureka配置
 eureka:
   client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-    register-with-eureka: true
-    fetch-registry: true
     # 更频繁地从注册中心获取服务列表
     registry-fetch-interval-seconds: 5
     # 初始实例信息复制延迟时间
@@ -34,45 +18,22 @@ eureka:
     # 实例信息复制间隔时间
     instance-info-replication-interval-seconds: 5
   instance:
-    prefer-ip-address: true
     # 更频繁的心跳，更快检测到服务状态变化
     lease-renewal-interval-in-seconds: 5
     # 更短的过期时间，更快清理失效实例
     lease-expiration-duration-in-seconds: 15
-    # 元数据，标识服务版本
-    metadata-map:
-      version: "1.0.0"
-      startup: ${random.long}
-      instance-id: ${spring.application.name}:${spring.application.instance_id:${server.port}}
-      port: ${server.port}
 
-# Management配置
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,refresh,metrics,prometheus,circuitbreakers
-  endpoint:
-    health:
-      show-details: always
-    metrics:
-      enabled: true
-    prometheus:
-      enabled: true
-  metrics:
-    export:
-      prometheus:
-        enabled: true
-    distribution:
-      percentiles-histogram:
-        http.server.requests: true
-      slo:
-        http.server.requests: 50ms,100ms,200ms,300ms,500ms,1s
-  health:
-    circuitbreakers:
-      enabled: true
+# 支付服务特定应用信息
+info:
+  features:
+    - Circuit Breaker (Resilience4j)
+    - Retry Pattern
+    - Timeout Control
+    - Bulkhead Pattern
+    - Multiple Payment Gateways
+    - Fallback Mechanisms
 
-# Resilience4j配置
+# Resilience4j配置 - 支付服务特定
 resilience4j:
   circuitbreaker:
     instances:
@@ -82,12 +43,40 @@ resilience4j:
         minimum-number-of-calls: 5
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
       paypal-payment:
         register-health-indicator: true
         sliding-window-size: 10
         minimum-number-of-calls: 5
         failure-rate-threshold: 60
         wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+      bank-transfer:
+        register-health-indicator: true
+        sliding-window-size: 8
+        minimum-number-of-calls: 3
+        failure-rate-threshold: 70
+        wait-duration-in-open-state: 20s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+        sliding-window-type: COUNT_BASED
+        record-exceptions:
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+          - java.io.IOException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException
+      payment-query:
+        register-health-indicator: true
+        sliding-window-size: 15
+        minimum-number-of-calls: 8
+        failure-rate-threshold: 40
+        wait-duration-in-open-state: 8s
+        permitted-number-of-calls-in-half-open-state: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+        sliding-window-type: COUNT_BASED
   
   retry:
     instances:
@@ -95,25 +84,170 @@ resilience4j:
         max-attempts: 3
         wait-duration: 1s
         exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
       paypal-payment:
         max-attempts: 2
         wait-duration: 2s
+        exponential-backoff-multiplier: 1.5
+      bank-transfer:
+        max-attempts: 1
+        wait-duration: 5s
+        retry-exceptions:
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+      payment-query:
+        max-attempts: 2
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 1.2
+        retry-exceptions:
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+          - java.io.IOException
   
   timelimiter:
     instances:
       stripe-payment:
         timeout-duration: 3s
+        cancel-running-future: true
       paypal-payment:
         timeout-duration: 5s
+        cancel-running-future: true
+      bank-transfer:
+        timeout-duration: 10s
+        cancel-running-future: false
   
   bulkhead:
     instances:
       stripe-payment:
         max-concurrent-calls: 5
+        max-wait-duration: 1s
       paypal-payment:
         max-concurrent-calls: 3
+        max-wait-duration: 2s
+      bank-transfer:
+        max-concurrent-calls: 2
+        max-wait-duration: 5s
+  
+  thread-pool-bulkhead:
+    instances:
+      stripe-payment:
+        core-thread-pool-size: 2
+        max-thread-pool-size: 4
+        queue-capacity: 10
+        keep-alive-duration: 20ms
+      paypal-payment:
+        core-thread-pool-size: 1
+        max-thread-pool-size: 2
+        queue-capacity: 5
+        keep-alive-duration: 20ms
 
+# 支付服务特定配置
+payment:
+  gateway:
+    primary: stripe
+    fallback: paypal
+    timeout: 30s
+    retry-attempts: 3
+    max-amount: 10000.00
+    min-amount: 0.01
+  processing:
+    async: true
+    batch-size: 100
+    notification-url: http://localhost:8083/api/orders/payment-callback
+    webhook-secret: ${PAYMENT_WEBHOOK_SECRET:default-secret}
+  security:
+    encryption-enabled: true
+    token-expiry: 15m
+    audit-enabled: true
+  providers:
+    stripe:
+      enabled: true
+      api-version: "2023-10-16"
+      webhook-endpoint: "/api/payments/stripe/webhook"
+    paypal:
+      enabled: true
+      sandbox: true
+      webhook-endpoint: "/api/payments/paypal/webhook"
+    bank-transfer:
+      enabled: false
+      processing-time: 24h
+
+# 支付服务特性开关
+feature:
+  payment:
+    refunds: true
+    partial-refunds: true
+    recurring-payments: false
+    multi-currency: true
+    fraud-detection: true
+    instant-settlements: false
+    payment-links: true
+    saved-cards: true
+
+# 支付服务监控配置
+management:
+  endpoint:
+    health:
+      show-components: always
+  health:
+    circuitbreakers:
+      enabled: true
+  metrics:
+    tags:
+      service: payment-service
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        resilience4j.circuitbreaker.calls: true
+
+# 支付服务日志配置
 logging:
   level:
     com.shophub.payment: INFO
     io.github.resilience4j: INFO
+    com.stripe: WARN
+    com.paypal: WARN
+
+---
+# Docker profile - Payment Service 在 Docker 环境下的特定配置
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+# Docker 环境下的支付服务配置
+payment:
+  docker:
+    container-name: payment-service
+    health-check:
+      interval: 30s
+      timeout: 15s
+      retries: 3
+    resources:
+      memory: 768m
+      cpu: 0.7
+    network:
+      timeout: 45000
+      retry-attempts: 2
+  security:
+    encryption-enabled: true
+    audit-enabled: true
+    webhook-verification: strict
+
+# Week 7: Docker 环境下的分布式追踪配置
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+    zipkin:
+      endpoint: http://zipkin:9411/api/v2/spans
+
+# Docker 环境下的日志配置
+logging:
+  level:
+    com.shophub.payment: WARN
+    io.github.resilience4j: WARN
+    com.stripe: ERROR
+    com.paypal: ERROR

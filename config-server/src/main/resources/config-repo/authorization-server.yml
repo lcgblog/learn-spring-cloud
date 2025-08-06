@@ -1,0 +1,187 @@
+# Authorization Server Service 服务独有配置
+# 只包含OAuth2授权服务器特定的业务配置
+
+server:
+  port: ${PORT:8090}
+
+# 服务特定的Eureka元数据
+eureka:
+  instance:
+    metadata-map:
+      description: "OAuth2 Authorization Server with JWT token support"
+      tags: "security,oauth2,jwt,authentication"
+
+# Week 8: OAuth2 Security Configuration
+spring:
+  application:
+    name: authorization-server
+  security:
+    oauth2:
+      authorizationserver:
+        issuer: http://localhost:8090
+        endpoint:
+          authorization-uri: /oauth2/authorize
+          token-uri: /oauth2/token
+          jwk-set-uri: /oauth2/jwks
+          token-revocation-uri: /oauth2/revoke
+          token-introspection-uri: /oauth2/introspect
+          oidc:
+            user-info-uri: /userinfo
+            client-registration-uri: /connect/register
+            logout-uri: /connect/logout
+
+# OAuth2 客户端配置
+oauth2:
+  clients:
+    shophub-client:
+      client-id: shophub-client
+      client-secret: "{bcrypt}$2a$10$MIkW8zqKvqyPZqKQs8qKvOeYjKQs8qKvOeYjKQs8qKvOeYjKQs8qKv"
+      client-authentication-methods:
+        - client_secret_basic
+        - client_secret_post
+      authorization-grant-types:
+        - authorization_code
+        - client_credentials
+        - refresh_token
+      redirect-uris:
+        - http://localhost:8080/login/oauth2/code/shophub
+        - http://localhost:3000/callback
+      scopes:
+        - read
+        - write
+        - user:profile
+        - order:manage
+        - payment:process
+      settings:
+        require-authorization-consent: false
+        require-proof-key: true
+      token:
+        access-token-time-to-live: PT1H
+        refresh-token-time-to-live: P7D
+        reuse-refresh-tokens: false
+
+# JWT Token 配置
+jwt:
+  token:
+    signing-key: "shophub-jwt-signing-key-2024"
+    issuer: "http://localhost:8090"
+    audience: "shophub-services"
+    expiration: 3600
+    refresh-expiration: 604800
+  claims:
+    include-user-info: true
+    include-authorities: true
+    custom-claims:
+      - tenant
+      - department
+      - permissions
+
+# 用户认证配置
+auth:
+  users:
+    admin:
+      username: admin
+      password: "{bcrypt}$2a$10$GRLdNijSQMUvl/au9ofL.eDwmoohzzS7.rmNSJZ.0FxO/BTk76klW"
+      authorities:
+        - ROLE_ADMIN
+        - ROLE_USER
+      enabled: true
+    user:
+      username: user
+      password: "{bcrypt}$2a$10$GRLdNijSQMUvl/au9ofL.eDwmoohzzS7.rmNSJZ.0FxO/BTk76klW"
+      authorities:
+        - ROLE_USER
+      enabled: true
+  password:
+    encoder: bcrypt
+    strength: 10
+  session:
+    maximum-sessions: 1
+    prevent-login-if-maximum-exceeded: false
+    session-registry-enabled: true
+
+# 授权服务器特性开关
+feature:
+  oauth2:
+    pkce-required: true
+    authorization-consent: false
+    device-flow: false
+    token-introspection: true
+    token-revocation: true
+    oidc-support: true
+    custom-claims: true
+    refresh-token-rotation: true
+
+# 授权服务器特定监控配置
+management:
+  endpoint:
+    health:
+      show-components: always
+  metrics:
+    tags:
+      service: authorization-server
+    distribution:
+      percentiles-histogram:
+        oauth2.token.requests: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,oauth2-clients,oauth2-authorized-clients
+  info:
+    env:
+      enabled: true
+
+# 授权服务器特定日志配置
+logging:
+  level:
+    org.springframework.security: INFO
+    org.springframework.security.oauth2: INFO
+    org.springframework.security.web: INFO
+    com.shophub.auth: DEBUG
+
+# 授权服务器特定应用信息
+info:
+  features:
+    oauth2: true
+    jwt: true
+    pkce: true
+    oidc: true
+    rbac: true
+
+---
+# Docker profile - Authorization Server 在 Docker 环境下的特定配置
+spring:
+  config:
+    activate:
+      on-profile: docker
+  security:
+    oauth2:
+      authorizationserver:
+        issuer: http://authorization-server:8090
+
+oauth2:
+  clients:
+    shophub-client:
+      redirect-uris:
+        - http://api-gateway:8080/login/oauth2/code/shophub
+        - http://localhost:3000/callback
+
+# Docker 环境下的授权服务器配置
+auth:
+  docker:
+    container-name: authorization-server
+    health-check:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    resources:
+      memory: 512m
+      cpu: 0.5
+    network:
+      timeout: 30000
+      retry-attempts: 2
+
+# Docker 环境下的特定日志级别
+logging:
+  level:
+    com.shophub.auth: INFO

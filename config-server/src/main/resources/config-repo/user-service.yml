@@ -1,79 +1,75 @@
+# User Service 服务独有配置
+# 只包含用户服务特定的业务配置
+
 server:
   port: 8081
 
 spring:
   application:
     name: user-service
-  datasource:
-    url: jdbc:h2:mem:testdb
-    driverClassName: org.h2.Driver
-    username: sa
-    password: password
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-  jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: create-drop
-    show-sql: true
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-    register-with-eureka: true
-    fetch-registry: true
-  instance:
-    prefer-ip-address: true
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,refresh,metrics,prometheus
-  endpoint:
-    health:
-      show-details: always
-    metrics:
-      enabled: true
-    prometheus:
-      enabled: true
-  metrics:
-    export:
-      prometheus:
-        enabled: true
-    distribution:
-      percentiles-histogram:
-        http.server.requests: true
-      slo:
-        http.server.requests: 50ms,100ms,200ms,300ms,500ms,1s
-
-# Feature toggles
-feature:
-  recommendations:
-    enabled: ${FEATURE_RECOMMENDATIONS_ENABLED:true}
-    personalization: true
-  realtime-inventory:
-    enabled: ${FEATURE_REALTIME_INVENTORY_ENABLED:false}
-  multi-currency:
-    enabled: ${FEATURE_MULTI_CURRENCY_ENABLED:false}
-
-# User service specific configuration
+# 用户服务特定配置
 user:
   authentication:
     jwt-secret: ${JWT_SECRET:mySecretKey}
     token-expiration: 3600
+    max-login-attempts: 5
+    lockout-duration: 300
   registration:
     email-verification: true
-    auto-approve: false
+    auto-activation: false
+    password-policy:
+      min-length: 8
+      require-uppercase: true
+      require-lowercase: true
+      require-numbers: true
+      require-special-chars: true
   profile:
-    max-upload-size: 5MB
-    allowed-formats: jpg,png,gif
+    avatar-upload: true
+    max-avatar-size: 2MB
+    allowed-formats: ["jpg", "png", "gif"]
 
+# 用户服务特性开关
+feature:
+  user:
+    social-login: true
+    two-factor-auth: false
+    profile-verification: true
+    activity-tracking: true
+
+# 用户服务监控配置
+management:
+  metrics:
+    tags:
+      service: user-service
+
+# 用户服务日志配置
 logging:
   level:
     com.shophub.user: DEBUG
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    org.springframework.security: INFO
+
+---
+# Docker profile - User Service 在 Docker 环境下的特定配置
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+# Docker 环境下的用户服务配置
+user:
+  docker:
+    container-name: user-service
+    health-check:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    resources:
+      memory: 512m
+      cpu: 0.5
+
+# Docker 环境下的日志配置
+logging:
+  level:
+    com.shophub.user: INFO
+    org.springframework.security: WARN

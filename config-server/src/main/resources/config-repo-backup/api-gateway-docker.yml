@@ -1,0 +1,38 @@
+# API Gateway Docker环境配置
+# 继承自 application-docker.yml 的通用Docker配置
+
+# Docker环境下的Eureka实例配置
+eureka:
+  instance:
+    hostname: api-gateway
+    prefer-ip-address: false
+
+# Docker环境下的Redis配置（用于限流）
+spring:
+  data:
+    redis:
+      host: redis
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# Docker环境下的Gateway功能开关
+gateway:
+  features:
+    rate-limiting:
+      enabled: true
+      redis-based: true
+    cors:
+      enabled: true
+      allowed-origins: "*"
+    authentication:
+      enabled: true
+      jwt-validation: true
+    circuit-breaker:
+      enabled: true
+      failure-threshold: 5
+      timeout: 3s

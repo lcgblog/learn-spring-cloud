@@ -1,4 +1,12 @@
-# Metrics Collector Service Configuration
+# Metrics Collector Service 服务独有配置
+# 只包含指标收集服务特定的业务配置
+
+server:
+  port: 8087
+
+spring:
+  application:
+    name: metrics-collector
 
 # 服务基本信息
 service:
@@ -13,12 +21,15 @@ observability:
     interval: 30s
     batch-size: 100
     timeout: 10s
+    max-retries: 3
     services:
       - user-service
       - product-service
       - order-service
       - payment-service
       - api-gateway
+      - authorization-server
+      - notification-service
   
   tracing:
     enabled: true
@@ -26,6 +37,11 @@ observability:
     export-timeout: 30s
     batch-timeout: 5s
     max-export-batch-size: 512
+    trace-id-ratio: 1.0
+    span-processor:
+      type: batch
+      max-queue-size: 2048
+      export-timeout: 30s
     
   metrics:
     custom:
@@ -33,12 +49,14 @@ observability:
       business-metrics: true
       performance-metrics: true
       cache-metrics: true
+      jvm-metrics: true
     
     export:
       prometheus:
         enabled: true
         step: 1m
         descriptions: true
+        histogram-flavor: prometheus
       
     distribution:
       percentiles:
@@ -52,25 +70,104 @@ observability:
         - 200ms
         - 500ms
         - 1s
+        - 2s
+        - 5s
 
-# 缓存配置
+# 缓存配置 - 指标收集服务特定
 cache:
   redis:
     enabled: true
     key-prefix: "shophub:metrics:"
     ttl: 300s
     max-connections: 10
+    connection-timeout: 2000ms
+    read-timeout: 1000ms
+  local:
+    enabled: true
+    max-size: 1000
+    expire-after-write: 5m
     
-# 健康检查配置
+# 健康检查配置 - 指标收集服务特定
 health:
   circuit-breaker:
     enabled: true
+    failure-threshold: 5
+    recovery-timeout: 30s
   diskspace:
     enabled: true
     threshold: 10MB
+    path: /tmp
+  memory:
+    enabled: true
+    threshold: 80
+  services:
+    check-interval: 30s
+    timeout: 5s
     
-# 特性开关
+# 指标收集服务特性开关
 feature:
-  auto-scaling-metrics: true
-  anomaly-detection: false
-  alerting: false
+  metrics:
+    auto-scaling-metrics: true
+    anomaly-detection: false
+    alerting: false
+    real-time-dashboard: true
+    historical-data: true
+    custom-metrics: true
+    service-topology: true
+
+# 指标收集服务监控配置
+management:
+  metrics:
+    tags:
+      service: metrics-collector
+    distribution:
+      percentiles-histogram:
+        metrics.collection.duration: true
+
+# 指标收集服务日志配置
+logging:
+  level:
+    com.shophub.metrics: INFO
+    io.micrometer: INFO
+    io.opentelemetry: INFO
+    org.springframework.cloud: WARN
+
+---
+# Docker profile - Metrics Collector Service 在 Docker 环境下的特定配置
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+# Docker 环境下的指标收集服务配置
+observability:
+  docker:
+    container-name: metrics-collector
+    health-check:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    resources:
+      memory: 1024m
+      cpu: 1.0
+    network:
+      timeout: 60000
+      retry-attempts: 3
+  collection:
+    interval: 60s
+    batch-size: 200
+    timeout: 15s
+
+# Docker 环境下的缓存配置
+cache:
+  redis:
+    ttl: 600s
+    max-connections: 20
+
+# Docker 环境下的日志配置
+logging:
+  level:
+    com.shophub.metrics: WARN
+    io.micrometer: WARN
+    io.opentelemetry: WARN
+    org.springframework.cloud: ERROR

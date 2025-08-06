@@ -1,0 +1,25 @@
+# User Service Docker环境配置
+# 继承自 application-docker.yml 的通用Docker配置
+
+spring:
+  # Docker环境下的数据库配置
+  datasource:
+    url: jdbc:h2:mem:userdb-docker
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+
+# Docker环境下的Eureka实例配置
+eureka:
+  instance:
+    hostname: user-service
+    prefer-ip-address: false
+
+# Docker环境下的Feign配置
+feign:
+  client:
+    config:
+      product-service:
+        # Docker环境下的超时配置
+        connect-timeout: 5000
+        read-timeout: 10000

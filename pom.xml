@@ -22,6 +22,9 @@
         <module>order-service</module>
         <module>payment-service</module>
         <module>metrics-collector</module>
+        <!-- Week 8: Security & Event-Driven Architecture -->
+        <module>authorization-server</module>
+        <module>notification-service</module>
     </modules>
 
     <properties>
@@ -44,6 +47,11 @@
         <micrometer.version>1.12.0</micrometer.version>
         <opentelemetry.version>1.32.0</opentelemetry.version>
         <zipkin.version>2.24.4</zipkin.version>
+        
+        <!-- Week 8: Security & Event-Driven Architecture 依赖版本 -->
+        <spring-authorization-server.version>1.2.0</spring-authorization-server.version>
+        <spring-security.version>6.2.0</spring-security.version>
+        <spring-cloud-stream.version>4.1.0</spring-cloud-stream.version>
         
         <!-- Maven插件版本 -->
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
@@ -108,6 +116,22 @@
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-bom</artifactId>
                 <version>${opentelemetry.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            
+            <!-- Week 8: Spring Authorization Server -->
+            <dependency>
+                <groupId>org.springframework.security</groupId>
+                <artifactId>spring-security-oauth2-authorization-server</artifactId>
+                <version>${spring-authorization-server.version}</version>
+            </dependency>
+            
+            <!-- Week 8: Spring Security BOM -->
+            <dependency>
+                <groupId>org.springframework.security</groupId>
+                <artifactId>spring-security-bom</artifactId>
+                <version>${spring-security.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

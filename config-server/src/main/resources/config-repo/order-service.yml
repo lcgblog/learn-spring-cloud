@@ -1,30 +1,14 @@
+# Order Service 服务独有配置
+# 只包含订单服务特定的业务配置
+
 server:
   port: 8083
 
 spring:
   application:
     name: order-service
-  cloud:
-    loadbalancer:
-      retry:
-        enabled: true
-        max-retries-on-same-service-instance: 1
-        max-retries-on-next-service-instance: 2
-        retryable-status-codes: 500,502,503,504
-      health-check:
-        initial-delay: 1000ms
-        interval: 10000ms
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-    register-with-eureka: true
-    fetch-registry: true
-  instance:
-    prefer-ip-address: true
-
-# Feign client configuration
+# 订单服务特定的Feign客户端配置
 feign:
   client:
     config:
@@ -37,11 +21,19 @@ feign:
           period: 100
           max-period: 1000
           max-attempts: 3
-  circuitbreaker:
+      payment-service:
+        connect-timeout: 5000
+        read-timeout: 15000
+        logger-level: full
+        retryer:
+          class: feign.Retryer.Default
+          period: 200
+          max-period: 2000
+          max-attempts: 2
+  micrometer:
     enabled: true
 
-
-# Resilience4j retry configuration
+# Resilience4j 配置 (熔断器和重试) - 订单服务特定
 resilience4j:
   retry:
     instances:
@@ -53,60 +45,117 @@ resilience4j:
           - java.net.ConnectException
           - java.net.SocketTimeoutException
           - feign.RetryableException
+      payment-service:
+        max-attempts: 2
+        wait-duration: 1s
+        exponential-backoff-multiplier: 1.5
+        retry-exceptions:
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+          - feign.RetryableException
+          - java.lang.RuntimeException
+  circuitbreaker:
+    instances:
+      product-service:
+        register-health-indicator: true
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+      payment-service:
+        register-health-indicator: true
+        failure-rate-threshold: 40
+        wait-duration-in-open-state: 20s
+        sliding-window-size: 8
+        minimum-number-of-calls: 4
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+          - feign.RetryableException
+          - java.lang.RuntimeException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,refresh,metrics,prometheus
-  endpoint:
-    health:
-      show-details: always
-    metrics:
-      enabled: true
-    prometheus:
-      enabled: true
-  metrics:
-    export:
-      prometheus:
-        enabled: true
-    distribution:
-      percentiles-histogram:
-        http.server.requests: true
-      slo:
-        http.server.requests: 50ms,100ms,200ms,300ms,500ms,1s
-
-# Feature toggles
-feature:
-  recommendations:
-    enabled: ${FEATURE_RECOMMENDATIONS_ENABLED:true}
-  realtime-inventory:
-    enabled: ${FEATURE_REALTIME_INVENTORY_ENABLED:false}
-  multi-currency:
-    enabled: ${FEATURE_MULTI_CURRENCY_ENABLED:false}
-
-# Payment gateway configuration
-payment:
-  gateway:
-    primary: stripe
-    fallback: paypal
-    timeout: 30s
-    retry-attempts: 3
-  processing:
-    async: true
-    notification-url: http://localhost:8083/api/orders/payment-callback
-
-# Order service specific configuration
+# 订单服务特定配置
 order:
   processing:
     auto-confirm: true
     confirmation-timeout: 15m
+    max-items-per-order: 50
+    order-expiry: 24h
   inventory:
     reserve-timeout: 10m
     check-before-payment: true
+    auto-release: true
+  workflow:
+    enable-approval: false
+    approval-threshold: 1000.00
+    notification-enabled: true
+  status:
+    auto-transitions: true
+    track-changes: true
 
+# 订单服务特性开关
+feature:
+  order:
+    bulk-orders: true
+    order-splitting: false
+    auto-cancellation: true
+    express-checkout: true
+    order-tracking: true
+    partial-fulfillment: false
+
+# 订单服务监控配置
+management:
+  metrics:
+    tags:
+      service: order-service
+    distribution:
+      percentiles-histogram:
+        feign.requests: true
+
+# 订单服务日志配置
 logging:
   level:
-    com.shophub.order: DEBUG
+    com.shophub.order: INFO
+    org.springframework.cloud: DEBUG
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
+    io.github.resilience4j: DEBUG
+    feign: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{traceId:-}] %-5level [%logger{36}] - %msg%n"
+
+---
+# Docker profile - Order Service 在 Docker 环境下的特定配置
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+# Docker 环境下的订单服务配置
+order:
+  docker:
+    container-name: order-service
+    health-check:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    resources:
+      memory: 512m
+      cpu: 0.5
+    network:
+      timeout: 30000
+      retry-attempts: 2
+
+
+
+# Docker 环境下的日志配置
+logging:
+  level:
+    com.shophub.order: INFO
+    feign: WARN
+    com.netflix.loadbalancer: WARN

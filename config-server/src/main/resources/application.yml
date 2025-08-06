@@ -75,3 +75,21 @@ logging:
     org.springframework.cloud.config: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+---
+# Docker profile configuration
+spring:
+  config:
+    activate:
+      on-profile: docker
+  cloud:
+    config:
+      server:
+        # 在Docker环境中只使用native配置源
+        native:
+          search-locations: classpath:/config-repo
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/

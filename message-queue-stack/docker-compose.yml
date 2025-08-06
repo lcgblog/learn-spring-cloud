@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # Redis缓存和分布式存储
+  redis:
+    image: redis:7-alpine
+    container_name: shophub-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - message-queue-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # RabbitMQ消息代理
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: shophub-rabbitmq
+    ports:
+      - "5672:5672"    # AMQP端口
+      - "15672:15672"  # 管理界面端口
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_VHOST=/
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_logs:/var/log/rabbitmq
+    networks:
+      - message-queue-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+
+
+volumes:
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  rabbitmq_logs:
+    driver: local
+
+networks:
+  message-queue-network:
+    driver: bridge
+    name: shophub-message-queue
+  # 外部网络，用于与主应用连接
+  default:
+    external: true
+    name: learn-spring-cloud_shophub-network

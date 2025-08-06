@@ -1,3 +1,6 @@
+# Product Service 服务独有配置
+# 只包含产品服务特定的业务配置
+
 server:
   port: ${PORT:8082}
 
@@ -5,66 +8,177 @@ spring:
   application:
     name: product-service
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-    register-with-eureka: true
-    fetch-registry: true
-  instance:
-    prefer-ip-address: true
-    metadata-map:
-      version: "1.0.0"
-      startup: ${random.long}
-      instance-id: ${spring.application.name}:${spring.application.instance_id:${server.port}}
-      port: ${server.port}
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,refresh,env,metrics,prometheus
-  endpoint:
-    health:
-      show-details: always
-    metrics:
-      enabled: true
-    prometheus:
-      enabled: true
-  metrics:
-    export:
-      prometheus:
-        enabled: true
-    distribution:
-      percentiles-histogram:
-        http.server.requests: true
-      slo:
-        http.server.requests: 50ms,100ms,200ms,300ms,500ms,1s
-
-# Feature toggles
-feature:
-  recommendations:
-    enabled: ${FEATURE_RECOMMENDATIONS_ENABLED:true}
-    algorithm: collaborative-filtering
-    max-results: 10
-  realtime-inventory:
-    enabled: ${FEATURE_REALTIME_INVENTORY_ENABLED:false}
-    refresh-interval: 30s
-  multi-currency:
-    enabled: ${FEATURE_MULTI_CURRENCY_ENABLED:false}
-    supported-currencies: USD,EUR,CNY
-
-# Business configuration
+# 产品服务特定配置
 product:
   search:
     max-results: 100
-    cache-timeout: 300s
+    search-timeout: 5000
+    fuzzy-search: true
+    min-score: 0.5
+  inventory:
+    low-stock-threshold: 10
+    auto-reorder: false
+    reorder-quantity: 100
   catalog:
-    default-category: electronics
-    enable-reviews: true
+    max-categories: 50
+    max-subcategories: 200
+    image-upload: true
+    max-image-size: 5MB
+    allowed-formats: ["jpg", "png", "webp"]
+  pricing:
+    currency-precision: 2
+    discount-rules: true
+    bulk-pricing: true
 
+# 产品服务特性开关
+feature:
+  product:
+    recommendations:
+      enabled: true
+      algorithm: collaborative-filtering
+      max-results: 10
+      cache-ttl: 3600
+    realtime-inventory:
+      enabled: false
+      refresh-interval: 30s
+    multi-currency:
+      enabled: false
+      supported-currencies: ["USD", "EUR", "CNY"]
+    advanced-search:
+      enabled: true
+      faceted-search: true
+      auto-complete: true
+
+# 产品服务缓存配置
+cache:
+  product:
+    ttl: 1800
+    max-size: 1000
+  category:
+    ttl: 3600
+    max-size: 100
+  search:
+    ttl: 300
+    max-size: 500
+
+# 产品服务特定监控配置
+management:
+  metrics:
+    tags:
+      service: product-service
+
+# Resilience4j配置
+resilience4j:
+  # 熔断器配置
+  circuitbreaker:
+    instances:
+      recommendation-service:
+        register-health-indicator: true
+        sliding-window-type: count-based
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 15s
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - java.lang.RuntimeException
+          - java.util.concurrent.TimeoutException
+          - java.io.IOException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException
+      
+      popular-products:
+        register-health-indicator: true
+        sliding-window-type: count-based
+        sliding-window-size: 8
+        minimum-number-of-calls: 3
+        failure-rate-threshold: 40
+        wait-duration-in-open-state: 10s
+        automatic-transition-from-open-to-half-open-enabled: true
+      
+      similar-products:
+        register-health-indicator: true
+        sliding-window-type: time-based
+        sliding-window-size: 60
+        minimum-number-of-calls: 4
+        failure-rate-threshold: 30
+        wait-duration-in-open-state: 20s
+  
+  # 重试配置
+  retry:
+    instances:
+      recommendation-service:
+        max-attempts: 3
+        wait-duration: 1s
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.lang.RuntimeException
+          - java.util.concurrent.TimeoutException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException
+      
+      similar-products:
+        max-attempts: 2
+        wait-duration: 500ms
+        exponential-backoff-multiplier: 1.5
+  
+  # 超时控制配置
+  timelimiter:
+    instances:
+      recommendation-service:
+        timeout-duration: 4s
+        cancel-running-future: true
+  
+  # 舱壁模式配置
+  bulkhead:
+    instances:
+      recommendation-service:
+        max-concurrent-calls: 3
+        max-wait-duration: 2s
+
+# 产品服务日志配置
 logging:
   level:
-    com.shophub.product: DEBUG
+    com.shophub.product: INFO
+    org.springframework.cloud: DEBUG
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
+    io.github.resilience4j: DEBUG
+    io.micrometer: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%logger{36}] [%X{traceId:-},%X{spanId:-}] - %msg%n"
+
+---
+# Docker profile - Product Service 在 Docker 环境下的特定配置
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+# Docker 环境下的产品服务配置
+product:
+  docker:
+    container-name: product-service
+    health-check:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    resources:
+      memory: 768m
+      cpu: 0.7
+    scaling:
+      min-instances: 1
+      max-instances: 3
+
+# Week 7: Docker 环境下的分布式追踪配置
+management:
+  tracing:
+    zipkin:
+      endpoint: http://zipkin:9411/api/v2/spans
+
+# Docker 环境下的日志配置
+logging:
+  level:
+    com.shophub.product: INFO
+    org.hibernate.SQL: WARN

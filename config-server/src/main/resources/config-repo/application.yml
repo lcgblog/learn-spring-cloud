@@ -1,0 +1,144 @@
+# 全局通用配置文件 - 所有微服务共享的基础配置
+# 包含Eureka、Management、Logging、Tracing等通用配置
+# 遵循单一职责原则：只包含所有服务都需要的通用配置
+
+# Eureka Client 通用配置
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+    # 服务注册和发现的频率配置
+    registry-fetch-interval-seconds: 30
+    instance-info-replication-interval-seconds: 30
+  instance:
+    prefer-ip-address: true
+    # 心跳间隔
+    lease-renewal-interval-in-seconds: 10
+    # 更短的过期时间，更快清理失效实例
+    lease-expiration-duration-in-seconds: 30
+    # 元数据，标识服务版本
+    metadata-map:
+      version: "1.0.0"
+      startup: ${random.long}
+      instance-id: ${spring.application.name}:${spring.application.instance_id:${server.port}}
+      port: ${server.port}
+
+# 健康检查和监控配置 - 所有服务通用
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,refresh,env,prometheus,circuitbreakers,circuitbreakerevents
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,300ms,500ms,1s
+  # 分布式追踪配置 - 所有服务通用
+  tracing:
+    sampling:
+      probability: 1.0
+    zipkin:
+      endpoint: http://localhost:9411/api/v2/spans
+
+# 日志配置 - 所有服务通用
+logging:
+  level:
+    org.springframework.cloud: INFO
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
+    io.micrometer: INFO
+    io.github.resilience4j: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%logger{36}] [%X{traceId:-},%X{spanId:-}] - %msg%n"
+
+# Spring Cloud 通用配置
+spring:
+  cloud:
+    loadbalancer:
+      retry:
+        enabled: true
+        max-retries-on-same-service-instance: 1
+        max-retries-on-next-service-instance: 2
+        retry-on-all-operations: false
+        retryable-status-codes: 500,502,503,504
+      health-check:
+        initial-delay: 1000ms
+        interval: 10000ms
+    config:
+      # Config Client 通用配置
+      discovery:
+        enabled: true
+        service-id: config-server
+      fail-fast: true
+      retry:
+        initial-interval: 1000
+        max-attempts: 6
+        max-interval: 2000
+        multiplier: 1.1
+  # 通用线程池配置
+  task:
+    execution:
+      pool:
+        core-size: 8
+        max-size: 16
+        queue-capacity: 100
+        keep-alive: 60s
+    scheduling:
+      pool:
+        size: 4
+
+# Feign 通用配置
+feign:
+  retryer:
+    enabled: true
+  client:
+    config:
+      default:
+        connect-timeout: 3000
+        read-timeout: 5000
+        logger-level: BASIC
+  circuitbreaker:
+    enabled: true
+
+# 应用信息 - 所有服务通用
+info:
+  app:
+    name: ${spring.application.name}
+    description: ShopHub microservice
+    version: 1.0.0
+    author: ShopHub Team
+  build:
+    version: ${project.version:1.0.0}
+    timestamp: ${maven.build.timestamp:unknown}
+
+# 通用安全配置
+security:
+  basic:
+    enabled: false
+  oauth2:
+    resource:
+      jwt:
+        key-uri: http://localhost:8090/.well-known/jwks.json
+
+# 通用性能配置
+server:
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
+  http2:
+    enabled: true

@@ -1,0 +1,60 @@
+# Product Service 特定配置
+# 通用配置（Eureka、Management、Logging等）继承自 application.yml
+# 环境特定配置继承自 application-{profile}.yml
+
+server:
+  port: ${PORT:8082}
+
+spring:
+  application:
+    name: product-service
+  # 数据库配置 (H2内存数据库)
+  datasource:
+    url: jdbc:h2:mem:productdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  
+  # JPA配置
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  
+  # H2控制台配置
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# Feature toggles
+feature:
+  recommendations:
+    enabled: ${FEATURE_RECOMMENDATIONS_ENABLED:true}
+    algorithm: collaborative-filtering
+    max-results: 10
+  realtime-inventory:
+    enabled: ${FEATURE_REALTIME_INVENTORY_ENABLED:false}
+    refresh-interval: 30s
+  multi-currency:
+    enabled: ${FEATURE_MULTI_CURRENCY_ENABLED:false}
+    supported-currencies: USD,EUR,CNY
+
+# Business configuration
+product:
+  search:
+    max-results: 100
+    cache-timeout: 300s
+  catalog:
+    default-category: electronics
+    enable-reviews: true
+
+logging:
+  level:
+    com.shophub.product: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{traceId:-}] %-5level %logger{36} - %msg%n"

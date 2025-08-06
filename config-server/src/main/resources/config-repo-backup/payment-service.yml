@@ -1,0 +1,119 @@
+# Payment Service Configuration
+server:
+  port: 8086
+
+spring:
+  # H2数据库配置
+  datasource:
+    url: jdbc:h2:mem:paymentdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  
+  # JPA配置
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+# Eureka Client 配置
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+    # 更频繁地从注册中心获取服务列表
+    registry-fetch-interval-seconds: 5
+    # 初始实例信息复制延迟时间
+    initial-instance-info-replication-interval-seconds: 5
+    # 实例信息复制间隔时间
+    instance-info-replication-interval-seconds: 5
+  instance:
+    prefer-ip-address: true
+    # 更频繁的心跳，更快检测到服务状态变化
+    lease-renewal-interval-in-seconds: 5
+    # 更短的过期时间，更快清理失效实例
+    lease-expiration-duration-in-seconds: 15
+    # 元数据，标识服务版本
+    metadata-map:
+      version: "1.0.0"
+      startup: ${random.long}
+      instance-id: ${spring.application.name}:${spring.application.instance_id:${server.port}}
+      port: ${server.port}
+
+# Management配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,refresh,metrics,prometheus,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,300ms,500ms,1s
+  health:
+    circuitbreakers:
+      enabled: true
+
+# Resilience4j配置
+resilience4j:
+  circuitbreaker:
+    instances:
+      stripe-payment:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+      paypal-payment:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 15s
+  
+  retry:
+    instances:
+      stripe-payment:
+        max-attempts: 3
+        wait-duration: 1s
+        exponential-backoff-multiplier: 2
+      paypal-payment:
+        max-attempts: 2
+        wait-duration: 2s
+  
+  timelimiter:
+    instances:
+      stripe-payment:
+        timeout-duration: 3s
+      paypal-payment:
+        timeout-duration: 5s
+  
+  bulkhead:
+    instances:
+      stripe-payment:
+        max-concurrent-calls: 5
+      paypal-payment:
+        max-concurrent-calls: 3
+
+logging:
+  level:
+    com.shophub.payment: INFO
+    io.github.resilience4j: INFO

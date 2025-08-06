@@ -1,0 +1,276 @@
+# Notification Service 服务独有配置
+# 只包含通知服务特定的业务配置
+
+server:
+  port: ${PORT:8088}
+
+# 服务特定的Eureka元数据
+eureka:
+  instance:
+    metadata-map:
+      description: "Event-driven notification service"
+      tags: "notification,events,messaging"
+
+# Week 8: Spring Cloud Stream配置
+spring:
+  application:
+    name: notification-service
+  # 异步配置
+  task:
+    execution:
+      pool:
+        core-size: 2
+        max-size: 10
+        queue-capacity: 100
+      thread-name-prefix: notification-async-
+    scheduling:
+      pool:
+        size: 2
+      thread-name-prefix: notification-scheduler-
+  cloud:
+    stream:
+      function:
+        definition: orderEvents;paymentEvents;productEvents;userEvents;systemEvents
+      bindings:
+        # 订单事件输入通道
+        orderEvents-in-0:
+          destination: order.events
+          group: notification-service
+          consumer:
+            max-attempts: 3
+            back-off-initial-interval: 1000
+            back-off-max-interval: 10000
+        
+        # 支付事件输入通道
+        paymentEvents-in-0:
+          destination: payment.events
+          group: notification-service
+          consumer:
+            max-attempts: 3
+            back-off-initial-interval: 1000
+            back-off-max-interval: 10000
+        
+        # 产品事件输入通道
+        productEvents-in-0:
+          destination: product.events
+          group: notification-service
+          consumer:
+            max-attempts: 3
+            back-off-initial-interval: 1000
+            back-off-max-interval: 10000
+        
+        # 用户事件输入通道
+        userEvents-in-0:
+          destination: user.events
+          group: notification-service
+          consumer:
+            max-attempts: 3
+            back-off-initial-interval: 1000
+            back-off-max-interval: 10000
+        
+        # 系统事件输入通道
+        systemEvents-in-0:
+          destination: system.events
+          group: notification-service
+          consumer:
+            max-attempts: 3
+            back-off-initial-interval: 1000
+            back-off-max-interval: 10000
+      
+      # RabbitMQ配置
+      rabbit:
+        bindings:
+          orderEvents-in-0:
+            consumer:
+              auto-bind-dlq: true
+              republish-to-dlq: true
+          paymentEvents-in-0:
+            consumer:
+              auto-bind-dlq: true
+              republish-to-dlq: true
+          productEvents-in-0:
+            consumer:
+              auto-bind-dlq: true
+              republish-to-dlq: true
+          userEvents-in-0:
+            consumer:
+              auto-bind-dlq: true
+              republish-to-dlq: true
+          systemEvents-in-0:
+            consumer:
+              auto-bind-dlq: true
+              republish-to-dlq: true
+  
+  # RabbitMQ连接配置
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+    connection-timeout: 15000
+    publisher-confirm-type: correlated
+    publisher-returns: true
+  
+  # Week 8: OAuth2资源服务器配置
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8090
+          jwk-set-uri: http://localhost:8090/oauth2/jwks
+
+# 通知服务特定配置
+notification:
+  channels:
+    email:
+      enabled: true
+      smtp:
+        host: smtp.gmail.com
+        port: 587
+        username: ${EMAIL_USERNAME:noreply@shophub.com}
+        password: ${EMAIL_PASSWORD:password}
+        auth: true
+        starttls: true
+      templates:
+        order-created: order-created-template
+        payment-success: payment-success-template
+        payment-failed: payment-failed-template
+        product-low-stock: product-low-stock-template
+    
+    sms:
+      enabled: false
+      provider: twilio
+      account-sid: ${SMS_ACCOUNT_SID:}
+      auth-token: ${SMS_AUTH_TOKEN:}
+      from-number: ${SMS_FROM_NUMBER:}
+    
+    push:
+      enabled: true
+      firebase:
+        server-key: ${FIREBASE_SERVER_KEY:}
+        project-id: ${FIREBASE_PROJECT_ID:shophub}
+    
+    webhook:
+      enabled: true
+      endpoints:
+        - url: http://localhost:3000/webhooks/notifications
+          events: [order.created, payment.success, payment.failed]
+          secret: ${WEBHOOK_SECRET:webhook-secret}
+  
+  processing:
+    async: true
+    batch-size: 50
+    retry-attempts: 3
+    retry-delay: 5000
+    dead-letter-enabled: true
+  
+  templates:
+    cache-enabled: true
+    cache-ttl: 3600
+    default-language: zh-CN
+    supported-languages: [zh-CN, en-US]
+
+# 通知服务特性开关
+feature:
+  notification:
+    real-time-notifications: true
+    batch-notifications: true
+    notification-history: true
+    user-preferences: true
+    notification-analytics: false
+    smart-delivery: false
+    a-b-testing: false
+
+# 通知服务特定管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,env,configprops,beans
+  health:
+    rabbit:
+      enabled: true
+  metrics:
+    tags:
+      service: notification-service
+    distribution:
+      percentiles-histogram:
+        notification.processing.duration: true
+
+# 通知服务特定日志配置
+logging:
+  level:
+    com.shophub.notification: DEBUG
+    org.springframework.cloud.stream: INFO
+    org.springframework.amqp: INFO
+
+# 通知服务特定应用信息
+info:
+  features:
+    event-driven: true
+    multi-channel: true
+    async-processing: true
+    dead-letter-queue: true
+    template-engine: true
+    user-preferences: true
+
+---
+# Docker profile - Notification Service 在 Docker 环境下的特定配置
+
+# Docker 环境下的 Eureka 配置
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka-server:8761/eureka/
+  instance:
+    hostname: notification-service
+    prefer-ip-address: false
+
+# Docker 环境下的 RabbitMQ 配置
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  rabbitmq:
+    host: rabbitmq
+    port: 5672
+    username: guest
+    password: guest
+  
+  # Docker 环境下的 OAuth2 配置
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://authorization-server:8090
+          jwk-set-uri: http://authorization-server:8090/oauth2/jwks
+
+# Docker 环境下的通知服务配置
+notification:
+  docker:
+    container-name: notification-service
+    health-check:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    resources:
+      memory: 512m
+      cpu: 0.5
+    network:
+      timeout: 30000
+      retry-attempts: 2
+  channels:
+    webhook:
+      endpoints:
+        - url: http://api-gateway:8080/webhooks/notifications
+          events: [order.created, payment.success, payment.failed]
+          secret: ${WEBHOOK_SECRET:webhook-secret}
+
+# Docker 环境下的特定日志级别
+logging:
+  level:
+    com.shophub.notification: INFO
+    org.springframework.cloud.stream: WARN
+    org.springframework.amqp: WARN

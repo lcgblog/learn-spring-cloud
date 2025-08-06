@@ -1,0 +1,28 @@
+# Payment Service Docker环境配置
+# 继承自 application-docker.yml 的通用Docker配置
+
+spring:
+  # Docker环境下的数据库配置
+  datasource:
+    url: jdbc:h2:mem:paymentdb-docker
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+
+# Docker环境下的Eureka实例配置
+eureka:
+  instance:
+    hostname: payment-service
+    prefer-ip-address: false
+
+# Docker环境下的支付网关配置
+payment:
+  gateway:
+    primary: stripe
+    stripe:
+      api-key: ${STRIPE_API_KEY:sk_test_docker_key}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_docker_secret}
+    paypal:
+      client-id: ${PAYPAL_CLIENT_ID:docker_client_id}
+      client-secret: ${PAYPAL_CLIENT_SECRET:docker_client_secret}
+      mode: sandbox

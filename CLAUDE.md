@@ -15,22 +15,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Order Service** (port 8083): Order processing with Feign client for product service calls
 - **Payment Service** (port 8086): Payment processing with circuit breaker protection
 - **Metrics Collector** (port 8087): Centralized observability and distributed tracing service with Redis caching
+- **Authorization Server** (port 8090): OAuth2 authorization server with JWT token generation and user authentication
+- **Notification Service** (port 8088): Event-driven notification service with RabbitMQ integration
 - **Redis** (port 6379): Distributed rate limiting, caching, and metrics storage
+- **RabbitMQ** (port 5672/15672): Message broker for event-driven architecture and asynchronous processing
 - **Zipkin** (port 9411): Distributed tracing visualization and analysis
 - **Prometheus** (port 9090): Metrics collection, monitoring, and alerting
 - **Grafana** (port 3000): Monitoring dashboards and visualization
 
-All services are registered with Eureka and implement health checks via Spring Boot Actuator. Week 4 added multi-instance Product Service deployment for load balancing demonstration. Week 5 introduced centralized configuration management with feature toggles and environment-specific configurations. Week 6 implemented circuit breaker and resilience patterns for fault tolerance and graceful degradation. Week 7 added comprehensive observability with distributed tracing, metrics collection, and monitoring dashboard.
+All services are registered with Eureka and implement health checks via Spring Boot Actuator. Week 4 added multi-instance Product Service deployment for load balancing demonstration. Week 5 introduced centralized configuration management with feature toggles and environment-specific configurations. Week 6 implemented circuit breaker and resilience patterns for fault tolerance and graceful degradation. Week 7 added comprehensive observability with distributed tracing, metrics collection, and monitoring dashboard. Week 8 implemented OAuth2 security with JWT tokens and event-driven architecture with RabbitMQ for real-time notifications.
 
 ### Tech Stack
 - **Spring Boot 3.2.0** with Java 17
-- **Spring Cloud 2023.0.0** (Eureka, Gateway, OpenFeign, LoadBalancer, Config)
+- **Spring Cloud 2023.0.0** (Eureka, Gateway, OpenFeign, LoadBalancer, Config, Stream)
 - **Maven** for dependency management with multi-module structure
 - **H2 Database** (user-service)
 - **Redis** for distributed rate limiting, caching, and metrics storage
+- **RabbitMQ** for message queuing and event-driven architecture
 - **Resilience4j** for retry, circuit breaker, bulkhead, and time limiter patterns
 - **Docker Compose** for containerized deployment
 - **Spring Cloud Config** for centralized configuration management
+- **Spring Authorization Server** for OAuth2 authorization and JWT token management
+- **Spring Security** for authentication, authorization, and method-level security
+- **Spring Cloud Stream** for event-driven microservices with RabbitMQ binding
 - **Micrometer + OpenTelemetry** for distributed tracing and metrics collection
 - **Prometheus** for metrics aggregation, monitoring, and alerting
 - **Zipkin** for distributed tracing visualization and analysis
@@ -53,6 +60,8 @@ learn-spring-cloud/
 ├── order-service/       # 订单服务
 ├── payment-service/     # 支付服务
 ├── metrics-collector/   # 指标收集服务 (Week 7)
+├── authorization-server/ # OAuth2授权服务器 (Week 8)
+├── notification-service/ # 事件驱动通知服务 (Week 8)
 ├── monitoring-stack/    # 监控技术栈配置 (Prometheus, Grafana, Zipkin)
 └── build-all.sh        # 一键构建脚本
 ```
@@ -61,6 +70,10 @@ learn-spring-cloud/
 - Spring Boot: 3.2.0
 - Spring Cloud: 2023.0.0
 - Java: 17
+- Spring Authorization Server: 1.2.0
+- Spring Security: 6.2.0
+- Spring Cloud Stream: 4.1.0
+- RabbitMQ: 3.12.0
 - Micrometer: 1.12.0
 - OpenTelemetry: 1.32.0
 - Resilience4j: 3.0.1
@@ -78,12 +91,15 @@ mvn clean install -pl config-server # 构建单个模块
 # 启动服务顺序 (依赖关系)
 cd config-server && mvn spring-boot:run    # 1. 配置中心 (必须首先启动)
 cd eureka-server && mvn spring-boot:run    # 2. 服务注册中心
-cd api-gateway && mvn spring-boot:run      # 3. API网关
-cd user-service && mvn spring-boot:run     # 4. 业务服务
-cd product-service && mvn spring-boot:run  # 5. 业务服务
-cd order-service && mvn spring-boot:run    # 6. 业务服务
-cd payment-service && mvn spring-boot:run  # 7. 支付服务
-cd metrics-collector && mvn spring-boot:run # 8. 指标收集服务
+# 启动RabbitMQ (Docker): docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+cd authorization-server && mvn spring-boot:run # 3. OAuth2授权服务器
+cd api-gateway && mvn spring-boot:run      # 4. API网关 (安全网关)
+cd user-service && mvn spring-boot:run     # 5. 业务服务
+cd product-service && mvn spring-boot:run  # 6. 业务服务
+cd order-service && mvn spring-boot:run    # 7. 业务服务
+cd payment-service && mvn spring-boot:run  # 8. 支付服务
+cd metrics-collector && mvn spring-boot:run # 9. 指标收集服务
+cd notification-service && mvn spring-boot:run # 10. 通知服务
 
 # Windows batch script to start all services
 ./start-services.bat
@@ -108,6 +124,12 @@ cd metrics-collector && mvn spring-boot:run # 8. 指标收集服务
 
 # Test Observability and Distributed Tracing functionality (Week 7)
 ./test-week7-observability.sh
+
+# Test Security and Event-Driven Architecture functionality (Week 8)
+./test-week8-security-events.sh
+
+# Test OAuth2 Authentication and Authorization (Week 8)
+./test-oauth2-tokens.sh
 ```
 
 ### Docker Deployment
@@ -200,6 +222,20 @@ curl http://localhost:9090/-/healthy  # Prometheus server health
 curl http://localhost:8087/actuator/prometheus  # Metrics Collector Prometheus metrics
 curl http://localhost:8080/actuator/prometheus  # API Gateway Prometheus metrics
 curl http://localhost:8082/actuator/prometheus  # Product Service Prometheus metrics
+
+# Week 8: Test OAuth2 Security and Event-Driven Architecture
+curl http://localhost:8090/actuator/health  # Authorization Server health
+curl http://localhost:8088/actuator/health  # Notification Service health
+curl http://localhost:15672  # RabbitMQ Management UI (guest/guest)
+curl http://localhost:8090/.well-known/openid_configuration  # OAuth2 configuration
+curl -X POST http://localhost:8090/oauth2/token -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=client_credentials&client_id=shophub-client&client_secret=secret"  # Get access token
+curl http://localhost:8088/api/notifications/user/1 -H "Authorization: Bearer {access_token}"  # Get user notifications
+curl http://localhost:8088/api/notifications/system -H "Authorization: Bearer {access_token}"  # Get system notifications
+curl -X POST http://localhost:8083/api/orders -H "Content-Type: application/json" -H "Authorization: Bearer {access_token}" -d '{"userId":1,"productId":1,"quantity":2}'  # Create order (triggers events)
+curl http://localhost:8088/api/notifications/events/recent  # Check recent events
+curl http://localhost:8090/api/auth/users/1/profile -H "Authorization: Bearer {access_token}"  # Test user profile access
+curl http://localhost:8082/api/products/1/inventory -H "Authorization: Bearer {access_token}"  # Test inventory access
+curl http://localhost:8086/api/payments/process -H "Content-Type: application/json" -H "Authorization: Bearer {access_token}" -d '{"orderId":1,"amount":99.99}'  # Test payment processing
 ```
 
 ## Service Endpoints
@@ -237,6 +273,8 @@ curl http://localhost:8082/actuator/prometheus  # Product Service Prometheus met
 - Order Service: `http://localhost:8083/api/orders`
 - Payment Service: `http://localhost:8086/api/payments`
 - Metrics Collector: `http://localhost:8087/api/metrics`
+- Authorization Server: `http://localhost:8090/oauth2`
+- Notification Service: `http://localhost:8088/api/notifications`
 
 ### Payment Service (port 8086)
 - **POST** `/api/payments/process` - Process payment with circuit breaker protection
@@ -259,6 +297,28 @@ curl http://localhost:8082/actuator/prometheus  # Product Service Prometheus met
 - **GET** `/actuator/prometheus` - Prometheus metrics endpoint
 - **GET** `/actuator/metrics` - Micrometer metrics endpoint
 
+### Authorization Server (port 8090) - **OAuth2 Security Center**
+- **GET** `/oauth2/authorize` - OAuth2 authorization endpoint
+- **POST** `/oauth2/token` - OAuth2 token endpoint
+- **GET** `/userinfo` - User information endpoint
+- **GET** `/.well-known/jwks.json` - JSON Web Key Set endpoint
+- **GET** `/.well-known/openid_configuration` - OpenID Connect configuration
+- **GET** `/api/auth/users/{id}/profile` - User profile endpoint (secured)
+- **POST** `/api/auth/users/register` - User registration endpoint
+- **POST** `/api/auth/users/login` - User login endpoint
+- **GET** `/actuator/health` - Actuator health endpoint
+- **GET** `/actuator/metrics` - Micrometer metrics endpoint
+
+### Notification Service (port 8088) - **Event-Driven Notifications**
+- **GET** `/api/notifications/user/{userId}` - Get user notifications (secured)
+- **GET** `/api/notifications/system` - Get system notifications (admin only)
+- **GET** `/api/notifications/events/recent` - Get recent events
+- **POST** `/api/notifications/mark-read/{notificationId}` - Mark notification as read
+- **GET** `/api/notifications/stats` - Get notification statistics
+- **GET** `/actuator/health` - Actuator health endpoint
+- **GET** `/actuator/metrics` - Micrometer metrics endpoint
+- **GET** `/actuator/prometheus` - Prometheus metrics endpoint
+
 **Week 5: Configuration and Feature Toggle Endpoints**
 - Product Features: `http://localhost:8082/api/products/features`
 - Product Recommendations: `http://localhost:8082/api/products/recommendations`
@@ -279,6 +339,17 @@ curl http://localhost:8082/actuator/prometheus  # Product Service Prometheus met
 - Active Traces: `http://localhost:8087/api/metrics/traces/active`
 - Service Registry: `http://localhost:8087/api/metrics/services`
 
+**Week 8: Security and Event-Driven Architecture Endpoints**
+- Authorization Server: `http://localhost:8090`
+- OAuth2 Token Endpoint: `POST http://localhost:8090/oauth2/token`
+- User Profile: `http://localhost:8090/api/auth/users/{id}/profile`
+- Notification Service: `http://localhost:8088/api/notifications`
+- User Notifications: `http://localhost:8088/api/notifications/user/{userId}`
+- System Notifications: `http://localhost:8088/api/notifications/system`
+- RabbitMQ Management UI: `http://localhost:15672` (guest/guest)
+- OpenID Configuration: `http://localhost:8090/.well-known/openid_configuration`
+- JWKS Endpoint: `http://localhost:8090/.well-known/jwks.json`
+
 
 
 ### Monitoring Stack (Week 7)
@@ -298,6 +369,16 @@ curl http://localhost:8082/actuator/prometheus  # Product Service Prometheus met
 - **Session Storage**: Distributed session management (if needed)
 - **Tracing Data**: Temporary storage for distributed tracing spans
 - Connection: `redis://localhost:6379`
+
+### RabbitMQ (5672/15672) - Week 8
+- **Message Broker**: Event-driven architecture with publish/subscribe patterns
+- **Event Processing**: Order events, inventory updates, user notifications
+- **Queue Management**: Durable queues for reliable message delivery
+- **Dead Letter Queues**: Failed message handling and retry mechanisms
+- **Management UI**: Web-based administration interface at `http://localhost:15672`
+- **Credentials**: guest/guest (development only)
+- **AMQP Connection**: `amqp://localhost:5672`
+- **Spring Cloud Stream**: Integration with microservices for event publishing/consuming
 
 ## Key Configuration
 
@@ -320,10 +401,31 @@ curl http://localhost:8082/actuator/prometheus  # Product Service Prometheus met
 - Load balancing handled automatically by Spring Cloud LoadBalancer
 - Circuit breaker patterns protect service calls from cascading failures
 
+### OAuth2 Security Configuration (Week 8)
+- **Authorization Server**: Spring Authorization Server with JWT token support
+- **Client Credentials**: `shophub-client` with PKCE flow support
+- **Token Validation**: Resource servers validate JWT tokens via JWKS endpoint
+- **Role-Based Access**: USER and ADMIN roles with method-level security
+- **Token Endpoints**: Standard OAuth2 endpoints (/oauth2/token, /oauth2/authorize)
+- **CORS Support**: Cross-origin requests enabled for web frontends
+- **Security Integration**: All microservices protected with JWT validation
+
+### Event-Driven Architecture (Week 8)
+- **Message Broker**: RabbitMQ with Spring Cloud Stream integration
+- **Event Publishing**: Order creation, inventory updates, user notifications
+- **Event Consumers**: Notification service processes all domain events
+- **Queue Configuration**: Durable queues with dead letter queue support
+- **Event Types**: OrderCreated, InventoryUpdated, UserRegistered, PaymentProcessed
+- **Retry Mechanisms**: Automatic retry with exponential backoff
+- **Event Sourcing**: Comprehensive event logging and audit trail
+
 ### Development Profile Settings
 - **Local**: Services run on individual ports with direct Eureka connection
 - **Docker**: Services use container networking with docker-compose service discovery
-- Profile-specific configurations in `application.yml` files
+- **Profile-specific configurations**: Environment-specific settings in `application.yml` files
+- **Security Profiles**: OAuth2 configuration varies between development and production
+- **Message Broker**: RabbitMQ connection settings adapt to deployment environment
+- **Database**: H2 for development, configurable for production environments
 
 ## Testing Framework
 
